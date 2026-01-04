@@ -1,0 +1,11 @@
+export { GameEngine } from './GameEngine';
+export type { InputState, GameCallbacks } from './GameEngine';
+export { CONFIG, LEVELS } from './config';
+export type { Level, EntityType } from './config';
+export { audioManager } from './AudioManager';
+export { FloatingText, FloatingTextPool } from './FloatingText';
+export { ParticlePool, createStars, drawStarsWithParallax } from './Particle';
+export type { Star } from './Particle';
+export { Entity } from './Entity';
+export { Player, Tentacle } from './Player';
+export * from './CreatureTypes';

@@ -1,0 +1,434 @@
+/* ===========================
+   Abyssal Hunter - Styles
+   =========================== */
+
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  background: #020205;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* Canvas */
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  touch-action: none;
+}
+
+/* UI Layer */
+#ui-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+.hud h1 {
+  margin: 0 0 5px 0;
+  font-size: 20px;
+  color: #00ffcc;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.stat {
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black;
+}
+
+.rank-display {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.bar-container {
+  width: 150px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.ink-bar {
+  width: 100%;
+  height: 100%;
+  background: #00ffcc;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 10px #00ffcc;
+}
+
+/* Combo Display */
+.combo-display {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: combo-pop 0.3s ease-out;
+}
+
+.combo-count {
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffcc00;
+  text-shadow: 0 0 15px rgba(255, 204, 0, 0.8);
+}
+
+.combo-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffcc00;
+  letter-spacing: 2px;
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Mute Button */
+.mute-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 20px;
+  border-radius: 50%;
+  background: rgba(0, 255, 204, 0.2);
+  border: 2px solid rgba(0, 255, 204, 0.5);
+  color: white;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mute-btn:hover {
+  background: rgba(0, 255, 204, 0.4);
+  transform: scale(1.1);
+}
+
+/* Controls Hint */
+.controls-hint {
+  margin-top: 10px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
+}
+
+.controls-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  display: block;
+  margin-top: 8px;
+}
+
+/* Level Up Notification */
+.notification {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  text-align: center;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.notification.active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  top: 40%;
+}
+
+.notification h2 {
+  font-size: 16px;
+  color: #aaa;
+  letter-spacing: 4px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.notification .rank {
+  font-size: 48px;
+  font-weight: 900;
+  color: #00ffcc;
+  text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+  margin: 5px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Screens */
+.screen {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(2, 2, 5, 0.85);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  pointer-events: auto;
+  backdrop-filter: blur(5px);
+  z-index: 100;
+}
+
+.screen.visible {
+  display: flex !important;
+}
+
+/* Start Screen Background */
+.start-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Animated Tentacles */
+.tentacle {
+  position: absolute;
+  width: 8px;
+  background: linear-gradient(to top, transparent, rgba(0, 255, 204, 0.3));
+  border-radius: 4px;
+  transform-origin: bottom center;
+}
+
+.tentacle-1 {
+  left: 10%;
+  bottom: -50px;
+  height: 200px;
+  animation: tentacle-sway 4s ease-in-out infinite;
+}
+
+.tentacle-2 {
+  left: 25%;
+  bottom: -80px;
+  height: 280px;
+  animation: tentacle-sway 5s ease-in-out infinite 0.5s;
+}
+
+.tentacle-3 {
+  right: 20%;
+  bottom: -60px;
+  height: 240px;
+  animation: tentacle-sway 4.5s ease-in-out infinite 1s reverse;
+}
+
+.tentacle-4 {
+  right: 8%;
+  bottom: -40px;
+  height: 180px;
+  animation: tentacle-sway 3.5s ease-in-out infinite 1.5s;
+}
+
+@keyframes tentacle-sway {
+
+  0%,
+  100% {
+    transform: rotate(-15deg) scaleY(1);
+  }
+
+  25% {
+    transform: rotate(10deg) scaleY(1.1);
+  }
+
+  50% {
+    transform: rotate(-10deg) scaleY(0.95);
+  }
+
+  75% {
+    transform: rotate(15deg) scaleY(1.05);
+  }
+}
+
+/* Floating Particles */
+.particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.particles .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(0, 255, 204, 0.5);
+  border-radius: 50%;
+  animation: float-up linear infinite;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(100vh) scale(0);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(90vh) scale(1);
+  }
+
+  90% {
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateY(-20vh) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Title Glow Pulse */
+.glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 10px rgba(0, 255, 204, 0.5),
+      0 0 20px rgba(0, 255, 204, 0.3),
+      0 0 30px rgba(0, 255, 204, 0.2);
+  }
+
+  50% {
+    text-shadow:
+      0 0 20px rgba(0, 255, 204, 0.8),
+      0 0 40px rgba(0, 255, 204, 0.5),
+      0 0 60px rgba(0, 255, 204, 0.3);
+  }
+}
+
+.title {
+  font-size: 40px;
+  margin: 0 0 10px 0;
+  color: #00ffcc;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 10;
+}
+
+.game-over-title {
+  color: #ff4444;
+  animation: none;
+  text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+}
+
+.desc {
+  font-size: 16px;
+  color: #aaa;
+  margin-bottom: 30px;
+  max-width: 400px;
+  text-align: center;
+  line-height: 1.5;
+  position: relative;
+  z-index: 10;
+}
+
+.desc strong {
+  color: #00ffcc;
+}
+
+/* Buttons */
+button {
+  background: linear-gradient(90deg, #00ffcc, #0088aa);
+  color: #001e36;
+  border: none;
+  padding: 15px 40px;
+  font-size: 18px;
+  cursor: pointer;
+  font-weight: 800;
+  border-radius: 50px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(0, 255, 204, 0.5);
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .hud h1 {
+    font-size: 16px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .desc {
+    font-size: 14px;
+    padding: 0 20px;
+  }
+
+  button {
+    padding: 12px 30px;
+    font-size: 16px;
+  }
+
+  .combo-count {
+    font-size: 20px;
+  }
+
+  .controls-hint {
+    display: none;
+  }
+}
