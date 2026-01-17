@@ -97,6 +97,11 @@ export class Player {
   levelIndex: number;
   readonly tentacles: Tentacle[];
 
+  // Power-up modifiable properties
+  baseSpeed: number = CONFIG.player.baseSpeed;
+  dashInkCost: number = CONFIG.player.inkCost;
+  visualSizeMultiplier: number = 1.0;
+
   // Glow animation
   private glowPhase: number = 0;
 
@@ -135,12 +140,12 @@ export class Player {
     while (diff < -Math.PI) diff += Math.PI * 2;
     this.angle += diff * 0.1;
 
-    let speed: number = CONFIG.player.baseSpeed;
+    let speed: number = this.baseSpeed;
     let isDashing = false;
 
     if (isInputActive && this.ink > 1) {
       speed = CONFIG.player.dashSpeed;
-      this.ink -= CONFIG.player.inkCost;
+      this.ink -= this.dashInkCost;
       isDashing = true;
     } else {
       this.ink = Math.min(this.ink + CONFIG.player.inkRegen, CONFIG.player.maxInk);
@@ -176,6 +181,9 @@ export class Player {
    * Renders the player (octopus-like creature) with bioluminescent glow
    */
   draw(ctx: CanvasRenderingContext2D, isDashing: boolean = false): void {
+    // Apply visual size multiplier from power-ups
+    const visualRadius = this.radius * this.visualSizeMultiplier;
+
     // Calculate glow intensity
     const glowAlpha =
       CONFIG.player.glowMinAlpha +
@@ -183,11 +191,11 @@ export class Player {
         (CONFIG.player.glowMaxAlpha - CONFIG.player.glowMinAlpha);
 
     // Draw outer glow
-    const glowRadius = this.radius * (isDashing ? 3 : 2.2);
+    const glowRadius = visualRadius * (isDashing ? 3 : 2.2);
     const gradient = ctx.createRadialGradient(
       this.x,
       this.y,
-      this.radius * 0.5,
+      visualRadius * 0.5,
       this.x,
       this.y,
       glowRadius
@@ -204,7 +212,7 @@ export class Player {
     // Draw tentacles (behind body)
     const tentacleColor = isDashing ? '#00ffff' : CONFIG.colors.playerOutline;
     for (const t of this.tentacles) {
-      t.draw(ctx, this.radius * 0.25, tentacleColor);
+      t.draw(ctx, visualRadius * 0.25, tentacleColor);
     }
 
     ctx.save();
@@ -214,21 +222,21 @@ export class Player {
     // Body (elongated ellipse)
     ctx.fillStyle = CONFIG.colors.player;
     ctx.beginPath();
-    ctx.ellipse(0, 0, this.radius * 1.2, this.radius, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, visualRadius * 1.2, visualRadius, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Eyes (white)
     ctx.fillStyle = 'white';
     ctx.beginPath();
-    ctx.arc(this.radius * 0.4, -this.radius * 0.35, this.radius * 0.3, 0, Math.PI * 2);
-    ctx.arc(this.radius * 0.4, this.radius * 0.35, this.radius * 0.3, 0, Math.PI * 2);
+    ctx.arc(visualRadius * 0.4, -visualRadius * 0.35, visualRadius * 0.3, 0, Math.PI * 2);
+    ctx.arc(visualRadius * 0.4, visualRadius * 0.35, visualRadius * 0.3, 0, Math.PI * 2);
     ctx.fill();
 
     // Pupils (dark)
     ctx.fillStyle = '#050510';
     ctx.beginPath();
-    ctx.arc(this.radius * 0.5, -this.radius * 0.35, this.radius * 0.12, 0, Math.PI * 2);
-    ctx.arc(this.radius * 0.5, this.radius * 0.35, this.radius * 0.12, 0, Math.PI * 2);
+    ctx.arc(visualRadius * 0.5, -visualRadius * 0.35, visualRadius * 0.12, 0, Math.PI * 2);
+    ctx.arc(visualRadius * 0.5, visualRadius * 0.35, visualRadius * 0.12, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();

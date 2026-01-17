@@ -6,6 +6,14 @@ import {
   drawJellyfish,
   drawEel,
   drawBlob,
+  drawSquid,
+  drawAnglerfish,
+  drawSeahorse,
+  drawShark,
+  drawMantaray,
+  drawNautilus,
+  drawCrab,
+  drawStarfish,
 } from './CreatureTypes';
 
 /**
@@ -196,6 +204,30 @@ export class Entity {
         break;
       case 'eel':
         drawEel(ctx, this.x, this.y, this.radius, angle, animFrame, this.color);
+        break;
+      case 'squid':
+        drawSquid(ctx, this.x, this.y, this.radius, angle, animFrame, this.color);
+        break;
+      case 'anglerfish':
+        drawAnglerfish(ctx, this.x, this.y, this.radius, angle, animFrame, this.color);
+        break;
+      case 'seahorse':
+        drawSeahorse(ctx, this.x, this.y, this.radius, angle, this.color);
+        break;
+      case 'shark':
+        drawShark(ctx, this.x, this.y, this.radius, angle, this.color);
+        break;
+      case 'mantaray':
+        drawMantaray(ctx, this.x, this.y, this.radius, angle, animFrame, this.color);
+        break;
+      case 'nautilus':
+        drawNautilus(ctx, this.x, this.y, this.radius, angle, this.color);
+        break;
+      case 'crab':
+        drawCrab(ctx, this.x, this.y, this.radius, angle, this.color);
+        break;
+      case 'starfish':
+        drawStarfish(ctx, this.x, this.y, this.radius, animFrame, this.color);
         break;
       case 'blob':
       default:

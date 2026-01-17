@@ -24,6 +24,8 @@
     "orchestrator:execute": "tsx orchestrator/index.ts execute",
     "orchestrator:validate": "tsx orchestrator/index.ts validate",
     "orchestrator:analyze": "tsx orchestrator/index.ts analyze",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=abyssal-hunter",
+    "deploy:preview": "npm run build && wrangler pages deploy dist --project-name=abyssal-hunter --branch=preview",
     "prepare": "husky"
   },
   "dependencies": {

@@ -4,6 +4,9 @@ import { Entity } from './Entity';
 import { FloatingTextPool } from './FloatingText';
 import { ParticlePool, Star, createStars, drawStarsWithParallax } from './Particle';
 import { Player } from './Player';
+import { PowerUp } from './PowerUp';
+import { ActivePowerUp, POWER_UP_CONFIG, POWER_UP_DEFINITIONS, PowerUpType } from './PowerUpTypes';
+import { ProjectilePool } from './Projectile';
 
 /**
  * Camera state for smooth following
@@ -23,6 +26,7 @@ interface KeyboardState {
   left: boolean;
   right: boolean;
   dash: boolean;
+  shoot: boolean;
 }
 
 /**
@@ -72,10 +76,20 @@ export class GameEngine {
   // Core state
   private player: Player;
   private entities: Entity[] = [];
+  private powerUps: PowerUp[] = [];
+  private activePowerUps: ActivePowerUp[] = [];
+  private lastPowerUpSpawn: number = 0;
   private particlePool: ParticlePool;
+  private projectilePool: ProjectilePool;
   private floatingTextPool: FloatingTextPool;
   private stars: Star[] = [];
   private camera: Camera = { x: 0, y: 0, scale: 1 };
+
+  // Shooting mechanics
+  private shootCharge: number = 0;
+  private lastShootTime: number = 0;
+  private readonly shootCooldown: number = 300; // 300ms between shots
+  private readonly shootInkCost: number = 10;
 
   // Canvas
   private canvas: HTMLCanvasElement | null = null;
@@ -90,7 +104,14 @@ export class GameEngine {
 
   // Input
   private input: InputState = { x: 0, y: 0, active: false };
-  private keys: KeyboardState = { up: false, down: false, left: false, right: false, dash: false };
+  private keys: KeyboardState = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    dash: false,
+    shoot: false,
+  };
   private usingKeyboard: boolean = false;
 
   // Screen shake
@@ -112,6 +133,7 @@ export class GameEngine {
   constructor() {
     this.player = new Player();
     this.particlePool = new ParticlePool(300);
+    this.projectilePool = new ProjectilePool(50);
     this.floatingTextPool = new FloatingTextPool();
     this.stars = createStars(CONFIG.stars.count, CONFIG.worldSize);
   }
@@ -193,9 +215,15 @@ export class GameEngine {
         this.keys.right = pressed;
         break;
       case 'Space':
+        this.keys.dash = pressed;
+        break;
       case 'ShiftLeft':
       case 'ShiftRight':
-        this.keys.dash = pressed;
+        this.keys.shoot = pressed;
+        // Handle shoot when key is released (charge shot)
+        if (!pressed && this.shootCharge > 0) {
+          this.fireProjectile();
+        }
         break;
     }
 
@@ -231,13 +259,19 @@ export class GameEngine {
   start(): void {
     this.player = new Player();
     this.entities = [];
+    this.powerUps = [];
+    this.activePowerUps = [];
+    this.lastPowerUpSpawn = performance.now();
     this.particlePool.clear();
+    this.projectilePool.clear();
     this.floatingTextPool.clear();
     this.frame = 0;
     this.running = true;
     this.combo = { count: 0, lastEatTime: 0, multiplier: 1 };
     this.shake = { intensity: 0, offsetX: 0, offsetY: 0 };
     this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES;
+    this.shootCharge = 0;
+    this.lastShootTime = 0;
 
     // Reset input position to player
     this.input.x = this.player.x;
@@ -349,6 +383,37 @@ export class GameEngine {
         this.entities.push(new Entity(type, ex, ey, radius));
       }
     }
+
+    // Spawn power-ups periodically
+    const now = performance.now();
+    if (
+      now - this.lastPowerUpSpawn > POWER_UP_CONFIG.spawnInterval &&
+      Math.random() < POWER_UP_CONFIG.spawnChance
+    ) {
+      this.lastPowerUpSpawn = now;
+      const powerUpTypes: PowerUpType[] = [
+        'speedBoost',
+        'shield',
+        'sizeIncrease',
+        'magnet',
+        'multiDash',
+      ];
+      const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+
+      // Spawn at random position away from player
+      const angle = Math.random() * Math.PI * 2;
+      const distance =
+        POWER_UP_CONFIG.minSpawnDistance +
+        Math.random() * (POWER_UP_CONFIG.maxSpawnDistance - POWER_UP_CONFIG.minSpawnDistance);
+      const px = this.player.x + Math.cos(angle) * distance;
+      const py = this.player.y + Math.sin(angle) * distance;
+
+      // Clamp to world bounds
+      const clampedX = Math.max(50, Math.min(CONFIG.worldSize - 50, px));
+      const clampedY = Math.max(50, Math.min(CONFIG.worldSize - 50, py));
+
+      this.powerUps.push(new PowerUp(randomType, clampedX, clampedY));
+    }
   }
 
   /**
@@ -399,6 +464,19 @@ export class GameEngine {
       // Update dynamic types
       e.updateType(playerRadius);
       e.update(playerX, playerY, this.frame);
+
+      // Magnet power-up: Attract food toward player
+      if (this.hasPowerUp('magnet') && e.type === 'food') {
+        const dx = playerX - e.x;
+        const dy = playerY - e.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 800 && d > 0) {
+          // Pull food toward player
+          const pullStrength = 2;
+          e.x += (dx / d) * pullStrength;
+          e.y += (dy / d) * pullStrength;
+        }
+      }
 
       // Collision detection
       const dx = playerX - e.x;
@@ -468,9 +546,95 @@ export class GameEngine {
           this.callbacks?.onScoreChange(Math.floor(this.player.radius));
           this.callbacks?.onComboChange?.(this.combo.count, this.combo.multiplier);
         } else if (e.type !== 'food' && this.spawnProtection <= 0) {
+          // Check if player has shield power-up
+          if (this.hasPowerUp('shield')) {
+            // Shield blocks the hit - remove shield and entity
+            this.activePowerUps = this.activePowerUps.filter(p => p.type !== 'shield');
+            this.entities.splice(i, 1);
+            this.particlePool.spawnBurst(
+              this.player.x,
+              this.player.y,
+              30,
+              POWER_UP_DEFINITIONS.shield.color,
+              10,
+              'explosion'
+            );
+            this.floatingTextPool.acquire(this.player.x, this.player.y - 40, 'BLOCKED!', '#ffaa00');
+            this.triggerShake(5);
+            // Play shield sound
+            continue;
+          }
           // Game over - eaten by predator (unless protected)
           this.gameOver();
           return;
+        }
+      }
+    }
+
+    // Check power-up collisions
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      const powerUp = this.powerUps[i];
+      powerUp.update(this.frame);
+
+      if (powerUp.checkCollision(playerX, playerY, playerRadius)) {
+        // Activate power-up
+        const now = performance.now();
+        const def = POWER_UP_DEFINITIONS[powerUp.type];
+        this.activePowerUps.push({
+          type: powerUp.type,
+          startTime: now,
+          endTime: now + def.duration,
+        });
+
+        // Visual feedback
+        this.particlePool.spawnBurst(powerUp.x, powerUp.y, 20, def.color, 8, 'sparkle');
+        this.floatingTextPool.acquire(powerUp.x, powerUp.y - 30, def.name, def.color);
+        this.triggerShake(2);
+
+        // Play sound (will add audio later)
+        // audioManager.playPowerUpPickup();
+
+        // Remove power-up
+        this.powerUps.splice(i, 1);
+      }
+    }
+
+    // Update active power-ups (remove expired ones)
+    const currentTime = performance.now();
+    this.activePowerUps = this.activePowerUps.filter(p => p.endTime > currentTime);
+
+    // Apply power-up effects to player
+    this.applyPowerUpEffects();
+
+    // Handle shooting charge
+    if (this.keys.shoot) {
+      this.shootCharge++;
+    } else if (this.shootCharge > 0) {
+      // Fire when released
+      this.fireProjectile();
+    }
+
+    // Update projectiles and check collisions with entities
+    this.projectilePool.update();
+    for (const projectile of this.projectilePool.getAll()) {
+      for (let i = this.entities.length - 1; i >= 0; i--) {
+        const entity = this.entities[i];
+        if (projectile.checkCollision(entity.x, entity.y, entity.radius)) {
+          // Projectile hit entity - remove both
+          this.entities.splice(i, 1);
+          this.projectilePool.remove(projectile);
+
+          // Explosion effect
+          this.particlePool.spawnBurst(entity.x, entity.y, 15, entity.color, 8, 'explosion');
+          this.floatingTextPool.acquire(entity.x, entity.y - 20, 'HIT!', CONFIG.colors.ink);
+          this.triggerShake(3);
+
+          // Award some score
+          const gain = entity.radius * 0.1;
+          this.player.radius += gain;
+          this.checkLevelUp();
+          this.callbacks?.onScoreChange(Math.floor(this.player.radius));
+          break;
         }
       }
     }
@@ -609,6 +773,14 @@ export class GameEngine {
       entity.draw(ctx, this.frame);
     }
 
+    // Draw power-ups
+    for (const powerUp of this.powerUps) {
+      powerUp.draw(ctx, this.frame);
+    }
+
+    // Draw projectiles
+    this.projectilePool.draw(ctx);
+
     // Draw particles
     this.particlePool.draw(ctx);
 
@@ -633,5 +805,81 @@ export class GameEngine {
    */
   isRunning(): boolean {
     return this.running;
+  }
+
+  /**
+   * Checks if a specific power-up is currently active
+   */
+  hasPowerUp(type: PowerUpType): boolean {
+    return this.activePowerUps.some(p => p.type === type);
+  }
+
+  /**
+   * Gets all currently active power-ups
+   */
+  getActivePowerUps(): ActivePowerUp[] {
+    return this.activePowerUps;
+  }
+
+  /**
+   * Applies power-up modifiers to player stats
+   */
+  private applyPowerUpEffects(): void {
+    // Speed boost: +50% speed
+    if (this.hasPowerUp('speedBoost')) {
+      this.player.baseSpeed = CONFIG.player.baseSpeed * 1.5;
+    } else {
+      this.player.baseSpeed = CONFIG.player.baseSpeed;
+    }
+
+    // Size increase: +30% radius
+    const baseSizeMultiplier = this.hasPowerUp('sizeIncrease') ? 1.3 : 1.0;
+    // Apply size multiplier visually only (doesn't change actual radius for collision/growth)
+    this.player.visualSizeMultiplier = baseSizeMultiplier;
+
+    // Multi-dash: 50% less ink cost
+    if (this.hasPowerUp('multiDash')) {
+      this.player.dashInkCost = CONFIG.player.inkCost * 0.5;
+    } else {
+      this.player.dashInkCost = CONFIG.player.inkCost;
+    }
+  }
+
+  /**
+   * Fires a projectile in the direction the player is facing
+   */
+  private fireProjectile(): void {
+    const now = performance.now();
+
+    // Check cooldown
+    if (now - this.lastShootTime < this.shootCooldown) {
+      return;
+    }
+
+    // Check if player has enough ink
+    if (this.player.ink < this.shootInkCost) {
+      return;
+    }
+
+    // Calculate charge level (0-1)
+    const charge = Math.min(this.shootCharge / 60, 1); // Max charge at 1 second (60 frames)
+
+    // Fire projectile in direction player is facing
+    this.projectilePool.spawn(this.player.x, this.player.y, this.player.angle, charge);
+
+    // Consume ink
+    this.player.ink = Math.max(0, this.player.ink - this.shootInkCost);
+    this.callbacks?.onInkChange(this.player.ink, CONFIG.player.maxInk);
+
+    // Reset charge and cooldown
+    this.shootCharge = 0;
+    this.lastShootTime = now;
+
+    // Visual feedback
+    this.particlePool.spawnBurst(this.player.x, this.player.y, 8, CONFIG.colors.ink, 6, 'glow');
+    this.triggerShake(2);
+
+    // Play sound
+    // audioManager.playShoot();
   }
 }
