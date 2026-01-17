@@ -13,7 +13,7 @@ body {
   overflow: hidden;
   background: #020205;
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -57,12 +57,39 @@ body {
   font-size: 14px;
   font-weight: bold;
   text-shadow: 1px 1px 2px black;
+  transition: all 0.3s ease;
+}
+
+.stat span {
+  display: inline-block;
+  transition:
+    transform 0.2s ease,
+    color 0.3s ease;
+}
+
+.stat:hover span {
+  transform: scale(1.1);
+  color: #00ffcc;
 }
 
 .rank-display {
   margin-top: 2px;
   font-size: 12px;
   color: #aaa;
+  animation: rank-glow 3s ease-in-out infinite;
+}
+
+@keyframes rank-glow {
+  0%,
+  100% {
+    color: #aaa;
+    text-shadow: none;
+  }
+
+  50% {
+    color: #00ffcc;
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+  }
 }
 
 .bar-container {
@@ -79,8 +106,29 @@ body {
   width: 100%;
   height: 100%;
   background: #00ffcc;
-  transition: width 0.1s linear;
+  transition:
+    width 0.1s linear,
+    box-shadow 0.3s ease;
   box-shadow: 0 0 10px #00ffcc;
+}
+
+.ink-bar[style*='background: rgb(255, 68, 68)'] {
+  animation: ink-low-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes ink-low-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px #ff4444;
+    opacity: 1;
+  }
+
+  50% {
+    box-shadow:
+      0 0 20px #ff4444,
+      0 0 30px #ff4444;
+    opacity: 0.8;
+  }
 }
 
 /* Combo Display */
@@ -89,14 +137,20 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  animation: combo-pop 0.3s ease-out;
+  animation:
+    combo-pop 0.3s ease-out,
+    combo-pulse 0.8s ease-in-out infinite;
 }
 
 .combo-count {
   font-size: 24px;
   font-weight: 900;
   color: #ffcc00;
-  text-shadow: 0 0 15px rgba(255, 204, 0, 0.8);
+  text-shadow:
+    0 0 15px rgba(255, 204, 0, 0.8),
+    0 0 30px rgba(255, 204, 0, 0.4),
+    0 0 45px rgba(255, 204, 0, 0.2);
+  animation: combo-number-pulse 0.6s ease-in-out infinite;
 }
 
 .combo-label {
@@ -104,6 +158,7 @@ body {
   font-weight: bold;
   color: #ffcc00;
   letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.6);
 }
 
 @keyframes combo-pop {
@@ -115,6 +170,34 @@ body {
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes combo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes combo-number-pulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 15px rgba(255, 204, 0, 0.8),
+      0 0 30px rgba(255, 204, 0, 0.4),
+      0 0 45px rgba(255, 204, 0, 0.2);
+  }
+
+  50% {
+    text-shadow:
+      0 0 25px rgba(255, 204, 0, 1),
+      0 0 50px rgba(255, 204, 0, 0.6),
+      0 0 75px rgba(255, 204, 0, 0.3);
   }
 }
 
@@ -190,10 +273,49 @@ body {
   font-size: 48px;
   font-weight: 900;
   color: #00ffcc;
-  text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+  text-shadow:
+    0 0 20px rgba(0, 255, 204, 0.8),
+    0 0 40px rgba(0, 255, 204, 0.5),
+    0 0 60px rgba(0, 255, 204, 0.3);
   margin: 5px 0;
   text-transform: uppercase;
   letter-spacing: 2px;
+  animation:
+    rank-appear 0.5s ease-out,
+    rank-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rank-appear {
+  0% {
+    transform: scale(0.5) rotate(-10deg);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.1) rotate(2deg);
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes rank-pulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 20px rgba(0, 255, 204, 0.8),
+      0 0 40px rgba(0, 255, 204, 0.5),
+      0 0 60px rgba(0, 255, 204, 0.3);
+  }
+
+  50% {
+    text-shadow:
+      0 0 30px rgba(0, 255, 204, 1),
+      0 0 60px rgba(0, 255, 204, 0.7),
+      0 0 90px rgba(0, 255, 204, 0.5);
+  }
 }
 
 /* Screens */
@@ -266,7 +388,6 @@ body {
 }
 
 @keyframes tentacle-sway {
-
   0%,
   100% {
     transform: rotate(-15deg) scaleY(1);
@@ -328,7 +449,6 @@ body {
 }
 
 @keyframes glow-pulse {
-
   0%,
   100% {
     text-shadow:
@@ -388,7 +508,9 @@ button {
   border-radius: 50px;
   text-transform: uppercase;
   letter-spacing: 2px;
-  transition: transform 0.1s, box-shadow 0.2s;
+  transition:
+    transform 0.1s,
+    box-shadow 0.2s;
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
   pointer-events: auto;
   position: relative;

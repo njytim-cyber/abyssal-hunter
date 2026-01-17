@@ -1,210 +1,323 @@
 import { CONFIG } from './config';
 
+export type ParticleType = 'explosion' | 'trail' | 'glow' | 'sparkle';
+
 /**
  * Particle class for visual effects (dash trails, eating effects)
  * Optimized for pooling - particles are short-lived
  */
 export class Particle {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    color: string;
-    size: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+  type: ParticleType;
+  glow: boolean;
 
-    constructor(x: number = 0, y: number = 0, color: string = '#fff', speed: number = 3) {
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        this.life = 1.0;
-        this.size = 4;
+  constructor(
+    x: number = 0,
+    y: number = 0,
+    color: string = '#fff',
+    speed: number = 3,
+    type: ParticleType = 'explosion'
+  ) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.life = 1.0;
+    this.maxLife = 1.0;
+    this.size = 4;
+    this.type = type;
+    this.glow = false;
 
-        const angle = Math.random() * Math.PI * 2;
-        this.vx = Math.cos(angle) * Math.random() * speed;
-        this.vy = Math.sin(angle) * Math.random() * speed;
+    const angle = Math.random() * Math.PI * 2;
+    this.vx = Math.cos(angle) * Math.random() * speed;
+    this.vy = Math.sin(angle) * Math.random() * speed;
+
+    // Adjust properties based on type
+    if (type === 'trail') {
+      this.size = 6;
+      this.vx *= 0.3;
+      this.vy *= 0.3;
+      this.glow = true;
+    } else if (type === 'sparkle') {
+      this.size = 2;
+      this.life = 0.8;
+      this.maxLife = 0.8;
+      this.glow = true;
+    } else if (type === 'glow') {
+      this.size = 8;
+      this.vx *= 0.5;
+      this.vy *= 0.5;
+      this.glow = true;
+    }
+  }
+
+  /**
+   * Reset particle for reuse from pool
+   */
+  reset(
+    x: number,
+    y: number,
+    color: string,
+    speed: number,
+    type: ParticleType = 'explosion'
+  ): void {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.life = 1.0;
+    this.maxLife = 1.0;
+    this.size = 4;
+    this.type = type;
+    this.glow = false;
+
+    const angle = Math.random() * Math.PI * 2;
+    this.vx = Math.cos(angle) * Math.random() * speed;
+    this.vy = Math.sin(angle) * Math.random() * speed;
+
+    // Adjust properties based on type
+    if (type === 'trail') {
+      this.size = 6;
+      this.vx *= 0.3;
+      this.vy *= 0.3;
+      this.glow = true;
+    } else if (type === 'sparkle') {
+      this.size = 2;
+      this.life = 0.8;
+      this.maxLife = 0.8;
+      this.glow = true;
+    } else if (type === 'glow') {
+      this.size = 8;
+      this.vx *= 0.5;
+      this.vy *= 0.5;
+      this.glow = true;
+    }
+  }
+
+  /**
+   * Updates particle physics and lifetime
+   * @returns true if particle is still alive
+   */
+  update(): boolean {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= 0.03;
+    return this.life > 0;
+  }
+
+  /**
+   * Renders the particle with fade-out effect
+   */
+  draw(ctx: CanvasRenderingContext2D): void {
+    const alpha = Math.max(0, this.life);
+
+    // Add glow effect for certain particle types
+    if (this.glow && alpha > 0.1) {
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.3;
+      ctx.fillStyle = this.color;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * this.life * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
-    /**
-     * Reset particle for reuse from pool
-     */
-    reset(x: number, y: number, color: string, speed: number): void {
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        this.life = 1.0;
-        this.size = 4;
+    // Draw main particle
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
 
-        const angle = Math.random() * Math.PI * 2;
-        this.vx = Math.cos(angle) * Math.random() * speed;
-        this.vy = Math.sin(angle) * Math.random() * speed;
+    if (this.type === 'sparkle') {
+      // Draw sparkles as stars
+      const points = 4;
+      const outerRadius = this.size * this.life;
+      const innerRadius = outerRadius * 0.5;
+      ctx.moveTo(this.x, this.y - outerRadius);
+      for (let i = 0; i < points * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = (Math.PI * i) / points;
+        ctx.lineTo(this.x + Math.sin(angle) * radius, this.y - Math.cos(angle) * radius);
+      }
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Regular circle
+      ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    /**
-     * Updates particle physics and lifetime
-     * @returns true if particle is still alive
-     */
-    update(): boolean {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= 0.03;
-        return this.life > 0;
-    }
-
-    /**
-     * Renders the particle with fade-out effect
-     */
-    draw(ctx: CanvasRenderingContext2D): void {
-        ctx.globalAlpha = Math.max(0, this.life);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-    }
+    ctx.globalAlpha = 1;
+  }
 }
 
 /**
  * Particle pool for object reuse
  */
 export class ParticlePool {
-    private pool: Particle[] = [];
-    private active: Particle[] = [];
-    private readonly maxPoolSize: number;
+  private pool: Particle[] = [];
+  private active: Particle[] = [];
+  private readonly maxPoolSize: number;
 
-    constructor(maxPoolSize: number = 200) {
-        this.maxPoolSize = maxPoolSize;
-        // Pre-allocate some particles
-        for (let i = 0; i < 50; i++) {
-            this.pool.push(new Particle());
+  constructor(maxPoolSize: number = 200) {
+    this.maxPoolSize = maxPoolSize;
+    // Pre-allocate some particles
+    for (let i = 0; i < 50; i++) {
+      this.pool.push(new Particle());
+    }
+  }
+
+  /**
+   * Get a particle from the pool or create new one
+   */
+  spawn(
+    x: number,
+    y: number,
+    color: string,
+    speed: number,
+    type: ParticleType = 'explosion'
+  ): void {
+    let particle: Particle;
+
+    if (this.pool.length > 0) {
+      particle = this.pool.pop()!;
+      particle.reset(x, y, color, speed, type);
+    } else if (this.active.length < this.maxPoolSize) {
+      particle = new Particle(x, y, color, speed, type);
+    } else {
+      return; // At capacity
+    }
+
+    this.active.push(particle);
+  }
+
+  /**
+   * Spawn multiple particles
+   */
+  spawnBurst(
+    x: number,
+    y: number,
+    count: number,
+    color: string,
+    speed: number,
+    type: ParticleType = 'explosion'
+  ): void {
+    for (let i = 0; i < count; i++) {
+      this.spawn(x, y, color, speed, type);
+    }
+  }
+
+  /**
+   * Spawn trail particles behind a moving object
+   */
+  spawnTrail(x: number, y: number, color: string): void {
+    this.spawn(x, y, color, 1, 'trail');
+  }
+
+  /**
+   * Update all active particles
+   */
+  update(): void {
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      if (!this.active[i].update()) {
+        const p = this.active.splice(i, 1)[0];
+        if (this.pool.length < this.maxPoolSize) {
+          this.pool.push(p);
         }
+      }
     }
+  }
 
-    /**
-     * Get a particle from the pool or create new one
-     */
-    spawn(x: number, y: number, color: string, speed: number): void {
-        let particle: Particle;
-
-        if (this.pool.length > 0) {
-            particle = this.pool.pop()!;
-            particle.reset(x, y, color, speed);
-        } else if (this.active.length < this.maxPoolSize) {
-            particle = new Particle(x, y, color, speed);
-        } else {
-            return; // At capacity
-        }
-
-        this.active.push(particle);
+  /**
+   * Draw all active particles
+   */
+  draw(ctx: CanvasRenderingContext2D): void {
+    for (const p of this.active) {
+      p.draw(ctx);
     }
+  }
 
-    /**
-     * Spawn multiple particles
-     */
-    spawnBurst(x: number, y: number, count: number, color: string, speed: number): void {
-        for (let i = 0; i < count; i++) {
-            this.spawn(x, y, color, speed);
-        }
-    }
+  /**
+   * Clear all active particles
+   */
+  clear(): void {
+    this.pool.push(...this.active);
+    this.active = [];
+  }
 
-    /**
-     * Update all active particles
-     */
-    update(): void {
-        for (let i = this.active.length - 1; i >= 0; i--) {
-            if (!this.active[i].update()) {
-                const p = this.active.splice(i, 1)[0];
-                if (this.pool.length < this.maxPoolSize) {
-                    this.pool.push(p);
-                }
-            }
-        }
-    }
-
-    /**
-     * Draw all active particles
-     */
-    draw(ctx: CanvasRenderingContext2D): void {
-        for (const p of this.active) {
-            p.draw(ctx);
-        }
-    }
-
-    /**
-     * Clear all active particles
-     */
-    clear(): void {
-        this.pool.push(...this.active);
-        this.active = [];
-    }
-
-    get count(): number {
-        return this.active.length;
-    }
+  get count(): number {
+    return this.active.length;
+  }
 }
 
 /**
  * Star with parallax layer for depth effect
  */
 export interface Star {
-    x: number;
-    y: number;
-    size: number;
-    layer: number; // 0 = far (slow), 1 = mid, 2 = near (fast)
-    brightness: number;
-    twinkleSpeed: number;
-    twinklePhase: number;
+  x: number;
+  y: number;
+  size: number;
+  layer: number; // 0 = far (slow), 1 = mid, 2 = near (fast)
+  brightness: number;
+  twinkleSpeed: number;
+  twinklePhase: number;
 }
 
 /**
  * Creates an array of random stars with parallax layers
  */
 export function createStars(count: number, worldSize: number): Star[] {
-    const stars: Star[] = [];
-    const layerCount = CONFIG.stars.layers;
+  const stars: Star[] = [];
+  const layerCount = CONFIG.stars.layers;
 
-    for (let i = 0; i < count; i++) {
-        const layer = Math.floor(Math.random() * layerCount);
-        const sizeMult = 0.5 + (layer / layerCount) * 1.5; // Far stars smaller
+  for (let i = 0; i < count; i++) {
+    const layer = Math.floor(Math.random() * layerCount);
+    const sizeMult = 0.5 + (layer / layerCount) * 1.5; // Far stars smaller
 
-        stars.push({
-            x: Math.random() * worldSize * 1.5, // Extend beyond world for parallax
-            y: Math.random() * worldSize * 1.5,
-            size: (Math.random() * 2 + 0.5) * sizeMult,
-            layer,
-            brightness: 0.3 + Math.random() * 0.7,
-            twinkleSpeed: 0.02 + Math.random() * 0.03,
-            twinklePhase: Math.random() * Math.PI * 2
-        });
-    }
+    stars.push({
+      x: Math.random() * worldSize * 1.5, // Extend beyond world for parallax
+      y: Math.random() * worldSize * 1.5,
+      size: (Math.random() * 2 + 0.5) * sizeMult,
+      layer,
+      brightness: 0.3 + Math.random() * 0.7,
+      twinkleSpeed: 0.02 + Math.random() * 0.03,
+      twinklePhase: Math.random() * Math.PI * 2,
+    });
+  }
 
-    return stars;
+  return stars;
 }
 
 /**
  * Draw stars with parallax effect
  */
 export function drawStarsWithParallax(
-    ctx: CanvasRenderingContext2D,
-    stars: Star[],
-    cameraX: number,
-    cameraY: number,
-    frame: number
+  ctx: CanvasRenderingContext2D,
+  stars: Star[],
+  cameraX: number,
+  cameraY: number,
+  frame: number
 ): void {
-    for (const star of stars) {
-        const parallax = CONFIG.stars.parallaxFactors[star.layer];
-        const x = star.x - cameraX * parallax;
-        const y = star.y - cameraY * parallax;
+  for (const star of stars) {
+    const parallax = CONFIG.stars.parallaxFactors[star.layer];
+    const x = star.x - cameraX * parallax;
+    const y = star.y - cameraY * parallax;
 
-        // Twinkle effect
-        const twinkle = Math.sin(frame * star.twinkleSpeed + star.twinklePhase);
-        const alpha = star.brightness * (0.7 + twinkle * 0.3);
+    // Twinkle effect
+    const twinkle = Math.sin(frame * star.twinkleSpeed + star.twinklePhase);
+    const alpha = star.brightness * (0.7 + twinkle * 0.3);
 
-        ctx.globalAlpha = Math.max(0.1, alpha);
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(x, y, star.size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = Math.max(0.1, alpha);
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(x, y, star.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
