@@ -1,4 +1,5 @@
 import { audioManager } from './AudioManager';
+import { Boss, BOSS_DEFINITIONS } from './Boss';
 import { CONFIG, LEVELS, EntityType, Level } from './config';
 import { Entity } from './Entity';
 import { FloatingTextPool } from './FloatingText';
@@ -139,6 +140,11 @@ export class GameEngine {
 
   // Spatial grid for optimized collision detection
   private spatialGrid: SpatialGrid;
+
+  // Boss encounter system
+  private currentBoss: Boss | null = null;
+  private bossSpawnIndex: number = 0;
+  private gameStartTime: number = 0;
 
   constructor() {
     this.player = new Player();
@@ -307,6 +313,9 @@ export class GameEngine {
     this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES;
     this.shootCharge = 0;
     this.lastShootTime = 0;
+    this.currentBoss = null;
+    this.bossSpawnIndex = 0;
+    this.gameStartTime = Date.now();
 
     // Apply shop upgrades to player
     const upgrades = shopManager.getUpgradeMultipliers();
@@ -458,6 +467,24 @@ export class GameEngine {
       const clampedY = Math.max(50, Math.min(CONFIG.worldSize - 50, py));
 
       this.powerUps.push(new PowerUp(randomType, clampedX, clampedY));
+    }
+
+    // Spawn bosses based on elapsed time
+    if (!this.currentBoss && this.bossSpawnIndex < BOSS_DEFINITIONS.length) {
+      const elapsedMinutes = (Date.now() - this.gameStartTime) / 1000 / 60;
+      const nextBoss = BOSS_DEFINITIONS[this.bossSpawnIndex];
+
+      if (elapsedMinutes >= nextBoss.spawnMinutes) {
+        this.currentBoss = new Boss(nextBoss, CONFIG.worldSize);
+        this.bossSpawnIndex++;
+        this.floatingTextPool.acquire(
+          this.player.x,
+          this.player.y - 100,
+          `${nextBoss.name} Appears!`,
+          '#ff0000'
+        );
+        audioManager.playLevelUp(); // Boss spawn sound
+      }
     }
   }
 
@@ -726,6 +753,51 @@ export class GameEngine {
     this.particlePool.update();
     this.floatingTextPool.update();
 
+    // Update and check boss collision
+    if (this.currentBoss) {
+      const boss = this.currentBoss; // Store reference for type safety
+      boss.update(this.player.x, this.player.y, this.frame);
+
+      // Check boss collision with player
+      if (boss.checkCollision(this.player.x, this.player.y, this.player.radius)) {
+        // Player hit by boss
+        if (this.spawnProtection === 0 && !this.hasPowerUp('shield')) {
+          this.gameOver();
+        }
+      }
+
+      // Check boss collision with projectiles
+      for (const projectile of this.projectilePool.getAll()) {
+        if (boss.checkCollision(projectile.x, projectile.y, projectile.radius)) {
+          // Projectile hit boss
+          const damage = 10 + this.player.radius * 0.5; // Scale with player size
+          boss.takeDamage(damage);
+          projectile.active = false;
+
+          // Boss death
+          if (!boss.active) {
+            const bossReward = boss.maxHealth * 2;
+            this.player.radius += bossReward;
+            this.floatingTextPool.acquire(
+              boss.x,
+              boss.y,
+              `+${Math.floor(bossReward)} XP`,
+              '#ffcc00'
+            );
+            this.particlePool.spawnBurst(boss.x, boss.y, 30, boss.color, 3);
+            audioManager.playLevelUp(); // Boss defeated sound
+            this.checkLevelUp(); // Check if defeating boss levels up player
+            this.callbacks?.onScoreChange(Math.floor(this.player.radius));
+            this.currentBoss = null;
+          } else {
+            // Boss hit effect
+            this.particlePool.spawnBurst(projectile.x, projectile.y, 5, boss.color, 2);
+            audioManager.playEat();
+          }
+        }
+      }
+    }
+
     // Decrement spawn protection
     if (this.spawnProtection > 0) {
       this.spawnProtection--;
@@ -840,6 +912,11 @@ export class GameEngine {
     // Draw entities
     for (const entity of this.entities) {
       entity.draw(ctx, this.frame);
+    }
+
+    // Draw boss (if active)
+    if (this.currentBoss) {
+      this.currentBoss.draw(ctx, this.frame);
     }
 
     // Draw power-ups
