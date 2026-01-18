@@ -5,13 +5,6 @@ compatibility_date = "2024-01-01"
 # Pages-specific configuration
 pages_build_output_dir = "dist"
 
-[build]
-command = "npm run build"
-cwd = "/"
-
-[build.upload]
-format = "service-worker"
-
 # Environment variables (add your own as needed)
 # [vars]
 # NODE_ENV = "production"
