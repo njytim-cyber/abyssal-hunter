@@ -507,4 +507,308 @@ if (this.y > CONFIG.worldSize) this.y = 0;
 
 ### Commit Reference
 
+Commit: `98fc209`
+
+---
+
+## Session: Shop System Implementation
+
+**Date**: 2026-01-18
+
+### Feature: Persistent Coin-Based Shop System
+
+**User Requirements**:
+
+- Currency: Coins
+- Items: All upgrade types
+- Timing: Between runs
+- Persistence: Yes (localStorage)
+
+### Implementation Overview
+
+Implemented a complete shop system with persistent progression using localStorage, allowing players to earn coins and purchase permanent upgrades that carry over between game runs.
+
+---
+
+#### 1. Shop Data Structure
+
+**File Created**: `src/game/ShopTypes.ts`
+
+Defined comprehensive shop types and items:
+
+```typescript
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  maxLevel: number;
+  effect: ShopItemEffect;
+  icon: string;
+}
+
+export interface PlayerProgress {
+  coins: number;
+  upgrades: Record<string, number>;
+  totalCoinsEarned: number;
+  gamesPlayed: number;
+}
+```
+
+**Available Upgrades**:
+
+1. **Swift Current** (🌊) - +10% movement speed per level (5 levels, 100 coins base)
+2. **Rapid Dash** (⚡) - -15% dash cooldown per level (5 levels, 150 coins base)
+3. **Abyssal Knowledge** (📚) - +20% XP gain per level (5 levels, 200 coins base)
+4. **Born Larger** (🐋) - +15% starting size per level (3 levels, 250 coins base)
+5. **Deep Sight** (👁️) - +20% vision/zoom per level (3 levels, 300 coins base)
+
+**Cost Scaling**: Exponential - `cost * 1.5^currentLevel`
+
+---
+
+#### 2. Persistent Storage Manager
+
+**File Created**: `src/game/ShopManager.ts`
+
+Implemented singleton manager class for:
+
+- localStorage persistence (`abyssal-hunter-progress` key)
+- Coin management (add, spend, track total earned)
+- Upgrade purchases with validation
+- Game statistics tracking
+- Upgrade multiplier calculations
+
+**Key Methods**:
+
+```typescript
+purchaseUpgrade(itemId: string): boolean
+getUpgradeMultipliers(): UpgradeMultipliers
+addCoins(amount: number): void
+recordGame(): void
+```
+
+---
+
+#### 3. Game Engine Integration
+
+**File Modified**: `src/game/GameEngine.ts`
+
+**Imports Added**:
+
+```typescript
+import { shopManager } from './ShopManager';
+```
+
+**Upgrade Application** (line 306-312):
+Applied upgrades when starting new game:
+
+```typescript
+const upgrades = shopManager.getUpgradeMultipliers();
+this.player.baseSpeed = CONFIG.player.baseSpeed * upgrades.speed;
+this.player.dashInkCost = CONFIG.player.inkCost * upgrades.dashCooldown;
+this.player.radius = CONFIG.player.startRadius * upgrades.startSize;
+this.xpMultiplier = upgrades.xp;
+this.visionMultiplier = upgrades.vision;
+```
+
+**XP Multiplier** (line 538):
+Applied to eating gains:
+
+```typescript
+const gain = baseGain * (1 + (this.combo.multiplier - 1) * 0.2) * this.xpMultiplier;
+```
+
+**Vision Multiplier** (line 776-777):
+Applied to camera zoom:
+
+```typescript
+const baseTargetScale = Math.max(0.15, Math.min(1.5, 30 / (this.player.radius + 10)));
+const targetScale = baseTargetScale * this.visionMultiplier;
+```
+
+**Coin Rewards** (line 750-753):
+Award coins on game over:
+
+```typescript
+const coinsEarned = Math.max(0, finalScore - CONFIG.player.startRadius);
+shopManager.addCoins(coinsEarned);
+shopManager.recordGame();
+```
+
+**Formula**: 1 coin per radius point above starting size (20)
+
+---
+
+#### 4. Shop UI Component
+
+**File Created**: `src/components/ShopScreen.tsx`
+
+Created React component with:
+
+- Scrollable shop screen overlay
+- Coin balance display with animated coin icon
+- Shop item cards showing:
+  - Icon, name, description
+  - Current level / max level
+  - Current effect value
+  - Next upgrade effect
+  - Cost and purchase button
+- Purchase validation (enough coins, not maxed)
+- Real-time shop refresh after purchases
+- "Back to Depths" close button
+
+**Key Features**:
+
+- Memoized components for performance
+- Dynamic effect formatting based on upgrade type
+- Visual feedback for maxed items
+- Disabled state for unaffordable items
+
+---
+
+#### 5. Game Over Screen Integration
+
+**File Modified**: `src/components/Game.tsx`
+
+**State Added**:
+
+```typescript
+const [shopVisible, setShopVisible] = useState(false);
+const [coinsEarned, setCoinsEarned] = useState(0);
+const [totalCoins, setTotalCoins] = useState(0);
+```
+
+**Updated GameOverScreen**:
+
+- Display coins earned from run
+- Show total coin balance
+- "Shop" button (golden styling)
+- "Respawn" button
+- Toggle between game over and shop screens
+
+**Shop Integration**:
+
+```typescript
+<ShopScreen visible={shopVisible} onClose={handleCloseShop} />
+```
+
+---
+
+#### 6. Visual Design & Styling
+
+**File Modified**: `src/styles/index.css`
+
+**Coins Earned Display**:
+
+- Golden color scheme (#ffd700)
+- Animated spinning coin icon (360° rotateY)
+- Total coins display
+- Clear hierarchy
+
+**Shop Screen Styling**:
+
+- Dark semi-transparent background (rgba(2, 2, 5, 0.98))
+- Scrollable container
+- Max width 900px, centered
+- Cyan-themed item cards with hover effects
+- Golden accents for coins and maxed items
+- Responsive layout with flexbox
+
+**Shop Item Cards**:
+
+- Glassmorphic design with cyan borders
+- Hover: lift effect + glow
+- Icon backgrounds
+- Three-column layout: icon | info | action
+- Different styling for maxed items (golden border)
+
+**Button Styling**:
+
+- Shop button: Golden gradient (#ffd700 to #ffaa00)
+- Respawn button: Cyan gradient (existing)
+- Disabled state: 40% opacity, no interaction
+
+---
+
+### Technical Highlights
+
+#### Persistence Architecture
+
+- **Storage**: Browser localStorage
+- **Serialization**: JSON encode/decode
+- **Error Handling**: Try-catch with fallback to defaults
+- **Singleton Pattern**: Single shopManager instance
+
+#### Performance Optimizations
+
+- Memoized React components (ShopScreen, ShopItemCard, GameOverScreen)
+- Shop only loads when visible
+- Minimal re-renders with useCallback hooks
+- Efficient upgrade multiplier calculations
+
+#### Type Safety
+
+- Full TypeScript interfaces for all shop data
+- Strict type checking on purchases
+- Validated upgrade effects
+
+#### User Experience
+
+- Clear visual feedback on purchases
+- Real-time coin balance updates
+- Persistent progress between sessions
+- Exponential cost scaling for balanced progression
+- Cannot buy maxed items
+- Cannot buy unaffordable items
+
+---
+
+### Cost Scaling Example
+
+**Swift Current** (Base: 100 coins):
+
+- Level 0 → 1: 100 coins (+10% speed)
+- Level 1 → 2: 150 coins (+20% speed total)
+- Level 2 → 3: 225 coins (+30% speed total)
+- Level 3 → 4: 338 coins (+40% speed total)
+- Level 4 → 5: 507 coins (+50% speed total)
+- **Total**: 1,320 coins for max level
+
+---
+
+### Progression Example
+
+**Example Run**:
+
+1. Start with radius 20, no upgrades
+2. Grow to radius 120 before dying
+3. Earn 100 coins (120 - 20)
+4. Purchase "Swift Current" Level 1 (100 coins)
+5. Next run starts with +10% speed
+6. Repeat to unlock more upgrades
+
+**Long-term Progression**:
+
+- Max all upgrades: ~15,000+ coins total
+- Represents ~150 successful runs to radius 120
+- Creates meaningful meta-progression
+- Incentivizes repeated playthroughs
+
+---
+
+### Files Created
+
+- `src/game/ShopTypes.ts` - Shop data structures and items
+- `src/game/ShopManager.ts` - Persistence and shop logic
+- `src/components/ShopScreen.tsx` - React shop UI component
+
+### Files Modified
+
+- `src/game/GameEngine.ts` - Upgrade integration, coin rewards
+- `src/components/Game.tsx` - Shop state management, UI integration
+- `src/styles/index.css` - Shop styling and animations
+
+### Commit Reference
+
 _To be added after commit_

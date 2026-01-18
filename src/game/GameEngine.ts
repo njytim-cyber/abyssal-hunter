@@ -7,6 +7,7 @@ import { Player } from './Player';
 import { PowerUp } from './PowerUp';
 import { ActivePowerUp, POWER_UP_CONFIG, POWER_UP_DEFINITIONS, PowerUpType } from './PowerUpTypes';
 import { ProjectilePool } from './Projectile';
+import { shopManager } from './ShopManager';
 
 /**
  * Camera state for smooth following
@@ -130,6 +131,10 @@ export class GameEngine {
 
   // Track dashing state for player draw
   private playerDashing: boolean = false;
+
+  // Shop upgrade multipliers (loaded on game start)
+  private xpMultiplier: number = 1;
+  private visionMultiplier: number = 1;
 
   constructor() {
     this.player = new Player();
@@ -297,6 +302,14 @@ export class GameEngine {
     this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES;
     this.shootCharge = 0;
     this.lastShootTime = 0;
+
+    // Apply shop upgrades to player
+    const upgrades = shopManager.getUpgradeMultipliers();
+    this.player.baseSpeed = CONFIG.player.baseSpeed * upgrades.speed;
+    this.player.dashInkCost = CONFIG.player.inkCost * upgrades.dashCooldown;
+    this.player.radius = CONFIG.player.startRadius * upgrades.startSize;
+    this.xpMultiplier = upgrades.xp;
+    this.visionMultiplier = upgrades.vision;
 
     // Reset input position to player
     this.input.x = this.player.x;
@@ -521,7 +534,8 @@ export class GameEngine {
           this.combo.lastEatTime = now;
           this.combo.multiplier = Math.min(this.combo.count, CONFIG.combo.maxMultiplier);
 
-          const gain = baseGain * (1 + (this.combo.multiplier - 1) * 0.2);
+          // Apply XP multiplier from shop upgrades
+          const gain = baseGain * (1 + (this.combo.multiplier - 1) * 0.2) * this.xpMultiplier;
           this.player.radius += gain;
 
           // Spawn particles - optimized to reduce lag
@@ -730,7 +744,15 @@ export class GameEngine {
     this.running = false;
     audioManager.playDeath();
     audioManager.stopAmbient();
-    this.callbacks?.onGameOver(Math.floor(this.player.radius));
+
+    const finalScore = Math.floor(this.player.radius);
+
+    // Award coins based on score (1 coin per radius gained above starting size)
+    const coinsEarned = Math.max(0, finalScore - CONFIG.player.startRadius);
+    shopManager.addCoins(coinsEarned);
+    shopManager.recordGame();
+
+    this.callbacks?.onGameOver(finalScore);
   }
 
   /**
@@ -758,8 +780,9 @@ export class GameEngine {
 
     ctx.save();
 
-    // Calculate camera scale based on player size
-    const targetScale = Math.max(0.15, Math.min(1.5, 30 / (this.player.radius + 10)));
+    // Calculate camera scale based on player size (with vision upgrade multiplier)
+    const baseTargetScale = Math.max(0.15, Math.min(1.5, 30 / (this.player.radius + 10)));
+    const targetScale = baseTargetScale * this.visionMultiplier;
     this.camera.scale += (targetScale - this.camera.scale) * 0.05;
 
     // Camera position (centered on player)

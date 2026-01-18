@@ -1,6 +1,9 @@
 import { useRef, useEffect, useCallback, useState, memo, type ReactNode } from 'react';
 
 import { GameEngine, Level, LEVELS, CONFIG } from '../game';
+import { shopManager } from '../game/ShopManager';
+
+import { ShopScreen } from './ShopScreen';
 
 interface HUDProps {
   score: number;
@@ -135,7 +138,10 @@ const StartScreen = memo(function StartScreen({ visible, onStart }: StartScreenP
 interface GameOverScreenProps {
   visible: boolean;
   finalScore: number;
+  coinsEarned: number;
+  totalCoins: number;
   onRestart: () => void;
+  onShop: () => void;
 }
 
 /**
@@ -144,7 +150,10 @@ interface GameOverScreenProps {
 const GameOverScreen = memo(function GameOverScreen({
   visible,
   finalScore,
+  coinsEarned,
+  totalCoins,
   onRestart,
+  onShop,
 }: GameOverScreenProps) {
   return (
     <Screen visible={visible} className="game-over">
@@ -154,7 +163,16 @@ const GameOverScreen = memo(function GameOverScreen({
         <br />
         Final Mass: <span>{finalScore}</span>
       </p>
-      <button onClick={onRestart}>Respawn</button>
+      <div className="coins-earned">
+        <span className="coin-icon">🪙</span> +{coinsEarned} coins
+        <div className="total-coins">Total: {totalCoins}</div>
+      </div>
+      <div className="game-over-buttons">
+        <button onClick={onShop} className="shop-button">
+          Shop
+        </button>
+        <button onClick={onRestart}>Respawn</button>
+      </div>
     </Screen>
   );
 });
@@ -197,6 +215,11 @@ export function Game() {
   const [comboMultiplier, setComboMultiplier] = useState(1);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
+
+  // Shop state
+  const [shopVisible, setShopVisible] = useState(false);
+  const [coinsEarned, setCoinsEarned] = useState(0);
+  const [totalCoins, setTotalCoins] = useState(0);
 
   // Notification state
   const [notification, setNotification] = useState({ title: '', visible: false });
@@ -243,6 +266,10 @@ export function Game() {
       onGameOver: score => {
         setFinalScore(score);
         setGameState('gameover');
+        // Calculate coins earned (already added by GameEngine, just display it)
+        const earned = Math.max(0, score - CONFIG.player.startRadius);
+        setCoinsEarned(earned);
+        setTotalCoins(shopManager.getCoins());
       },
       onComboChange: (count, multiplier) => {
         setCombo(count);
@@ -356,7 +383,24 @@ export function Game() {
     setRank(LEVELS[0].rank);
     setCombo(0);
     setComboMultiplier(1);
+    setShopVisible(false); // Close shop when starting game
     engineRef.current?.start();
+  }, []);
+
+  /**
+   * Open shop screen
+   */
+  const handleShop = useCallback(() => {
+    setShopVisible(true);
+  }, []);
+
+  /**
+   * Close shop screen
+   */
+  const handleCloseShop = useCallback(() => {
+    setShopVisible(false);
+    // Refresh total coins in case of purchases
+    setTotalCoins(shopManager.getCoins());
   }, []);
 
   return (
@@ -378,11 +422,15 @@ export function Game() {
 
       <StartScreen visible={gameState === 'start'} onStart={startGame} />
       <GameOverScreen
-        visible={gameState === 'gameover'}
+        visible={gameState === 'gameover' && !shopVisible}
         finalScore={finalScore}
+        coinsEarned={coinsEarned}
+        totalCoins={totalCoins}
         onRestart={startGame}
+        onShop={handleShop}
       />
       <PauseScreen visible={paused && gameState === 'playing'} />
+      <ShopScreen visible={shopVisible} onClose={handleCloseShop} />
     </>
   );
 }
