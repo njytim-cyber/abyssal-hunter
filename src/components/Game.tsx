@@ -51,7 +51,9 @@ const HUD = memo(function HUD({
       <button className="mute-btn" onClick={onMuteToggle} aria-label={muted ? 'Unmute' : 'Mute'}>
         {muted ? '🔇' : '🔊'}
       </button>
-      <div className="controls-hint">WASD/Arrows to move • Space/Click to dash</div>
+      <div className="controls-hint">
+        WASD/Arrows to move • Space/Click to dash • ESC/P to pause
+      </div>
     </div>
   );
 });
@@ -157,6 +159,24 @@ const GameOverScreen = memo(function GameOverScreen({
   );
 });
 
+interface PauseScreenProps {
+  visible: boolean;
+}
+
+/**
+ * Pause screen overlay
+ */
+const PauseScreen = memo(function PauseScreen({ visible }: PauseScreenProps) {
+  return (
+    <Screen visible={visible} className="pause-screen">
+      <h2 className="title">PAUSED</h2>
+      <p className="desc">
+        Press <strong>ESC</strong> or <strong>P</strong> to resume
+      </p>
+    </Screen>
+  );
+});
+
 type GameState = 'start' | 'playing' | 'gameover';
 
 /**
@@ -176,6 +196,7 @@ export function Game() {
   const [combo, setCombo] = useState(0);
   const [comboMultiplier, setComboMultiplier] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({ title: '', visible: false });
@@ -315,6 +336,19 @@ export function Game() {
   }, []);
 
   /**
+   * Poll pause state from engine
+   */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (engineRef.current && gameState === 'playing') {
+        setPaused(engineRef.current.isPaused());
+      }
+    }, 100); // Check every 100ms
+
+    return () => clearInterval(interval);
+  }, [gameState]);
+
+  /**
    * Start or restart the game
    */
   const startGame = useCallback(() => {
@@ -348,6 +382,7 @@ export function Game() {
         finalScore={finalScore}
         onRestart={startGame}
       />
+      <PauseScreen visible={paused && gameState === 'playing'} />
     </>
   );
 }

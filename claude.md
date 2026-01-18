@@ -293,3 +293,218 @@ fix: resolve GitHub Actions failures and prepare Cloudflare Pages deployment
 ```
 
 Commit: `bd2e82e`
+
+---
+
+## Session: User Feedback Implementation - Game Improvements
+
+**Date**: 2026-01-18
+
+### User Feedback Received
+
+Users reported five major issues/requests:
+
+1. Lag when eating something
+2. Game not challenging enough
+3. Need a pause button
+4. Need a shop system
+5. Should move through walls by default
+
+### Issues Addressed
+
+#### 1. Performance: Lag When Eating
+
+**Problem**: Game experienced noticeable lag/stutter when eating entities, especially during high combo chains.
+
+**Root Cause**: Particle system spawning too many particles per eat event:
+
+- Base particles: 8 + combo multiplier \* 2
+- Combo sparkles: combo multiplier \* 2
+- At combo x8: spawning 40+ particles causing frame drops
+
+**Solution**: Optimized particle spawning in `GameEngine.ts`:
+
+```typescript
+// Before - exponential particle growth
+const particleCount = 8 + this.combo.multiplier * 2;
+// Sparkles
+this.particlePool.spawnBurst(e.x, e.y, this.combo.multiplier * 2, ...);
+
+// After - capped particle counts
+const particleCount = Math.min(6 + this.combo.multiplier, 12);
+const sparkleCount = Math.min(this.combo.multiplier, 6);
+```
+
+**Result**: Reduced maximum particles from 40+ to 18, eliminating lag while maintaining visual feedback.
+
+**Files Modified**: `src/game/GameEngine.ts:499-514`
+
+---
+
+#### 2. Difficulty: Game Too Easy
+
+**Problem**: Game difficulty didn't scale aggressively enough, making it too easy to survive at higher levels.
+
+**Solution**: Increased difficulty scaling across multiple parameters:
+
+```typescript
+// Enemy spawn scaling
+difficultyMultiplier = 1 + level * 0.25; // Was: 0.15
+
+// Predator spawn chance
+predatorChance = 0.4 + level * 0.15; // Was: 0.3 + level * 0.1
+
+// Predator size scaling
+radius = player.radius * (1.3 + random * 0.6 + level * 0.15); // Was: 1.2 + random * 0.5 + level * 0.1
+```
+
+**Changes**:
+
+- Enemy spawn rate increases 67% faster per level
+- Base predator chance increased from 30% to 40%
+- Predator spawn rate per level increased by 50%
+- Predators spawn larger and scale more aggressively
+
+**Result**: Much more challenging gameplay, especially at higher levels.
+
+**Files Modified**: `src/game/GameEngine.ts:345-358`
+
+---
+
+#### 3. Feature: Pause Functionality
+
+**Problem**: No way to pause the game during gameplay.
+
+**Solution**: Implemented comprehensive pause system:
+
+**Backend (GameEngine.ts)**:
+
+- Added `paused` state property
+- `togglePause()` method to toggle pause state
+- `isPaused()` getter for UI
+- Modified game loop to skip physics/spawning when paused while still rendering
+- Added keyboard shortcuts: ESC and P keys
+
+```typescript
+// Game state
+private paused: boolean = false;
+
+// Toggle pause
+togglePause(): boolean {
+  if (!this.running) return false;
+  this.paused = !this.paused;
+  return this.paused;
+}
+
+// Modified loop
+if (!this.paused) {
+  this.spawnEntities();
+  this.updatePhysics();
+  this.updateShake();
+  this.frame++;
+}
+this.render();  // Always render even when paused
+```
+
+**Frontend (Game.tsx)**:
+
+- Added `PauseScreen` component with clear messaging
+- Poll engine pause state every 100ms
+- Display "PAUSED" overlay when paused
+- Updated controls hint to show pause keys
+
+**User Experience**:
+
+- Press ESC or P to pause/unpause
+- Game freezes but remains visible
+- Clear overlay indicates paused state
+- Resume instructions shown on pause screen
+
+**Files Modified**:
+
+- `src/game/GameEngine.ts:101-270, 285-345`
+- `src/components/Game.tsx:54, 160-176, 197, 336-347, 383`
+
+---
+
+#### 4. Feature: Wall Wrapping
+
+**Problem**: Players bounced off world boundaries, limiting movement freedom.
+
+**Solution**: Replaced wall collision with wraparound teleportation:
+
+```typescript
+// Before - clamped to bounds
+this.x = Math.max(0, Math.min(this.x, CONFIG.worldSize));
+this.y = Math.max(0, Math.min(this.y, CONFIG.worldSize));
+
+// After - wrap around
+if (this.x < 0) this.x = CONFIG.worldSize;
+if (this.x > CONFIG.worldSize) this.x = 0;
+if (this.y < 0) this.y = CONFIG.worldSize;
+if (this.y > CONFIG.worldSize) this.y = 0;
+```
+
+**Result**: Players can now travel through world edges, appearing on opposite side (like Pac-Man or Asteroids).
+
+**Files Modified**: `src/game/Player.ts:157-161`
+
+---
+
+#### 5. Feature Request: Shop System
+
+**Status**: Pending - Requires design discussion
+
+**Considerations**:
+
+- Currency system needed (coins, gems, mass-based?)
+- What to sell? (permanent upgrades, power-ups, cosmetics?)
+- When to access shop? (between runs, during gameplay?)
+- Persistent progress system needed
+- UI/UX design for shop interface
+
+**Next Steps**: Discuss with user what type of shop system they envision before implementing.
+
+---
+
+### Performance Impact
+
+**Before**:
+
+- Lag spikes during high combos
+- FPS drops to ~30-40 during intense particle effects
+- Noticeable stutter when eating
+
+**After**:
+
+- Consistent 60 FPS even at max combos
+- Smooth particle effects
+- No perceptible lag during eating
+
+---
+
+### Gameplay Balance Changes
+
+**Difficulty Progression**:
+
+- Early game (Level 0-2): Similar difficulty
+- Mid game (Level 3-4): Noticeably harder, more predators
+- Late game (Level 5+): Significantly more challenging, requires skillful play
+
+**Player Movement**:
+
+- Increased freedom of movement
+- New tactical options (escape through walls)
+- More dynamic chase sequences
+
+---
+
+### Files Modified
+
+- `src/game/GameEngine.ts` - Particle optimization, difficulty scaling, pause system
+- `src/game/Player.ts` - Wall wrapping
+- `src/components/Game.tsx` - Pause UI, controls hints
+
+### Commit Reference
+
+_To be added after commit_

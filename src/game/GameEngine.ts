@@ -99,6 +99,7 @@ export class GameEngine {
 
   // Game state
   private running: boolean = false;
+  private paused: boolean = false;
   private frame: number = 0;
   private animationId: number = 0;
 
@@ -225,6 +226,13 @@ export class GameEngine {
           this.fireProjectile();
         }
         break;
+      case 'Escape':
+      case 'KeyP':
+        // Toggle pause on key press (not release)
+        if (pressed) {
+          this.togglePause();
+        }
+        break;
     }
 
     if (pressed && (this.keys.up || this.keys.down || this.keys.left || this.keys.right)) {
@@ -254,6 +262,22 @@ export class GameEngine {
   }
 
   /**
+   * Toggle pause state
+   */
+  togglePause(): boolean {
+    if (!this.running) return false;
+    this.paused = !this.paused;
+    return this.paused;
+  }
+
+  /**
+   * Check if game is paused
+   */
+  isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
    * Starts or restarts the game
    */
   start(): void {
@@ -267,6 +291,7 @@ export class GameEngine {
     this.floatingTextPool.clear();
     this.frame = 0;
     this.running = true;
+    this.paused = false;
     this.combo = { count: 0, lastEatTime: 0, multiplier: 1 };
     this.shake = { intensity: 0, offsetX: 0, offsetY: 0 };
     this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES;
@@ -311,11 +336,14 @@ export class GameEngine {
     if (!this.running) return;
 
     try {
-      this.spawnEntities();
-      this.updatePhysics();
-      this.updateShake();
+      // Skip game logic updates when paused, but still render
+      if (!this.paused) {
+        this.spawnEntities();
+        this.updatePhysics();
+        this.updateShake();
+        this.frame++;
+      }
       this.render();
-      this.frame++;
       this.animationId = requestAnimationFrame(this.loop);
     } catch (error) {
       console.error('Game loop error:', error);
@@ -342,20 +370,20 @@ export class GameEngine {
 
     // Spawn enemies with difficulty scaling based on player level
     const enemyCount = this.entities.filter(e => e.type !== 'food').length;
-    const difficultyMultiplier = 1 + this.player.levelIndex * 0.15; // Increases with level
+    const difficultyMultiplier = 1 + this.player.levelIndex * 0.25; // Increases faster with level
     const maxEnemiesScaled = Math.floor(CONFIG.spawn.maxEnemies * difficultyMultiplier);
 
     if (enemyCount < maxEnemiesScaled) {
       // During spawn protection, only spawn prey so player can grow
-      // Higher level = more predators
-      const predatorChance = 0.3 + this.player.levelIndex * 0.1;
+      // Higher level = more predators - increased from 0.1 to 0.15
+      const predatorChance = 0.4 + this.player.levelIndex * 0.15;
       const isPredator = this.spawnProtection <= 0 && Math.random() < predatorChance;
       let radius: number;
       let type: EntityType;
 
       if (isPredator) {
-        // Predators scale more aggressively with level
-        radius = this.player.radius * (1.2 + Math.random() * 0.5 + this.player.levelIndex * 0.1);
+        // Predators scale more aggressively with level - made even bigger
+        radius = this.player.radius * (1.3 + Math.random() * 0.6 + this.player.levelIndex * 0.15);
         type = 'predator';
       } else {
         // Prey also gets tougher at higher levels
@@ -496,20 +524,14 @@ export class GameEngine {
           const gain = baseGain * (1 + (this.combo.multiplier - 1) * 0.2);
           this.player.radius += gain;
 
-          // Spawn enhanced particles based on entity type and combo
-          const particleCount = 8 + this.combo.multiplier * 2;
+          // Spawn particles - optimized to reduce lag
+          const particleCount = Math.min(6 + this.combo.multiplier, 12);
           this.particlePool.spawnBurst(e.x, e.y, particleCount, e.color, 4, 'glow');
 
-          // Add sparkles for combos
+          // Add sparkles for combos - reduced count
           if (this.combo.multiplier > 1) {
-            this.particlePool.spawnBurst(
-              e.x,
-              e.y,
-              this.combo.multiplier * 2,
-              CONFIG.colors.combo,
-              6,
-              'sparkle'
-            );
+            const sparkleCount = Math.min(this.combo.multiplier, 6);
+            this.particlePool.spawnBurst(e.x, e.y, sparkleCount, CONFIG.colors.combo, 6, 'sparkle');
           }
 
           // Floating score text

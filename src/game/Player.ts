@@ -154,9 +154,11 @@ export class Player {
     this.x += Math.cos(this.angle) * speed;
     this.y += Math.sin(this.angle) * speed;
 
-    // Clamp to world bounds
-    this.x = Math.max(0, Math.min(this.x, CONFIG.worldSize));
-    this.y = Math.max(0, Math.min(this.y, CONFIG.worldSize));
+    // Wrap around world bounds (teleport to opposite side)
+    if (this.x < 0) this.x = CONFIG.worldSize;
+    if (this.x > CONFIG.worldSize) this.x = 0;
+    if (this.y < 0) this.y = CONFIG.worldSize;
+    if (this.y > CONFIG.worldSize) this.y = 0;
 
     // Update tentacles
     const tentacleRad = this.radius * 0.6;
