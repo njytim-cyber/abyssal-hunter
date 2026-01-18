@@ -22,7 +22,7 @@ export class BGMManager {
   private currentTrack: BGMTrack | null = null;
   private volume: number = 0.3; // Default 30% volume
   private muted: boolean = false;
-  private crossfadeDuration: number = 1500; // 1.5 seconds
+  private crossfadeDuration: number = 300; // 300ms for quick transitions
 
   constructor() {
     this.tracks = new Map();

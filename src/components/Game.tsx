@@ -4,6 +4,7 @@ import { GameEngine, Level, LEVELS, CONFIG } from '../game';
 import { bgmManager } from '../game/BGMManager';
 import { shopManager } from '../game/ShopManager';
 
+import { SettingsScreen } from './SettingsScreen';
 import { ShopScreen } from './ShopScreen';
 
 interface HUDProps {
@@ -12,13 +13,8 @@ interface HUDProps {
   inkPercent: number;
   combo: number;
   comboMultiplier: number;
-  muted: boolean;
-  bgmMuted: boolean;
-  bgmVolume: number;
   lives: number;
-  onMuteToggle: () => void;
-  onBGMMuteToggle: () => void;
-  onBGMVolumeChange: (volume: number) => void;
+  onSettingsClick: () => void;
 }
 
 /**
@@ -30,13 +26,8 @@ const HUD = memo(function HUD({
   inkPercent,
   combo,
   comboMultiplier,
-  muted,
-  bgmMuted,
-  bgmVolume,
   lives,
-  onMuteToggle,
-  onBGMMuteToggle,
-  onBGMVolumeChange,
+  onSettingsClick,
 }: HUDProps) {
   return (
     <div className="hud">
@@ -69,34 +60,9 @@ const HUD = memo(function HUD({
           <span className="combo-label">COMBO</span>
         </div>
       )}
-      <div className="audio-controls">
-        <button
-          className="mute-btn"
-          onClick={onMuteToggle}
-          aria-label={muted ? 'Unmute SFX' : 'Mute SFX'}
-        >
-          {muted ? '🔇' : '🔊'} SFX
-        </button>
-        <button
-          className="mute-btn"
-          onClick={onBGMMuteToggle}
-          aria-label={bgmMuted ? 'Unmute Music' : 'Mute Music'}
-        >
-          {bgmMuted ? '🔇' : '🎵'} BGM
-        </button>
-        <div className="volume-control">
-          <label htmlFor="bgm-volume">🎵</label>
-          <input
-            id="bgm-volume"
-            type="range"
-            min="0"
-            max="100"
-            value={bgmVolume * 100}
-            onChange={e => onBGMVolumeChange(parseFloat(e.target.value) / 100)}
-            aria-label="Music Volume"
-          />
-        </div>
-      </div>
+      <button className="settings-btn" onClick={onSettingsClick} aria-label="Settings">
+        ⚙️
+      </button>
       <div className="controls-hint">
         WASD/Arrows to move • Space/Click to dash • ESC/P to pause
       </div>
@@ -137,12 +103,13 @@ function Screen({ visible, children, className = '' }: ScreenProps) {
 interface StartScreenProps {
   visible: boolean;
   onStart: () => void;
+  onSettings: () => void;
 }
 
 /**
  * Initial start screen with animated tentacles
  */
-const StartScreen = memo(function StartScreen({ visible, onStart }: StartScreenProps) {
+const StartScreen = memo(function StartScreen({ visible, onStart, onSettings }: StartScreenProps) {
   return (
     <Screen visible={visible}>
       <div className="start-bg">
@@ -166,6 +133,9 @@ const StartScreen = memo(function StartScreen({ visible, onStart }: StartScreenP
           ))}
         </div>
       </div>
+      <button className="settings-btn-menu" onClick={onSettings} aria-label="Settings">
+        ⚙️
+      </button>
       <h2 className="title glow-pulse">Abyssal Hunter</h2>
       <p className="desc">
         Start as a larva. Eat to evolve.
@@ -265,6 +235,9 @@ export function Game() {
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [totalCoins, setTotalCoins] = useState(0);
 
+  // Settings state
+  const [settingsVisible, setSettingsVisible] = useState(false);
+
   // BGM state
   const [bgmMuted, setBGMMuted] = useState(false);
   const [bgmVolume, setBGMVolume] = useState(0.3);
@@ -316,16 +289,6 @@ export function Game() {
   }, []);
 
   /**
-   * Initialize BGM on first user interaction
-   */
-  const initBGM = useCallback(() => {
-    if (!bgmInitialized) {
-      bgmManager.preloadAll();
-      setBGMInitialized(true);
-    }
-  }, [bgmInitialized]);
-
-  /**
    * Initialize game engine
    */
   useEffect(() => {
@@ -353,6 +316,12 @@ export function Game() {
       onLivesChange: setLives,
     });
 
+    // Initialize BGM immediately
+    bgmManager.preloadAll();
+    setBGMInitialized(true);
+    // Play menu music on load
+    bgmManager.play('menu', false);
+
     // Handle resize
     const handleResize = () => engine.handleResize();
     window.addEventListener('resize', handleResize);
@@ -360,6 +329,7 @@ export function Game() {
     return () => {
       window.removeEventListener('resize', handleResize);
       engine.stop();
+      bgmManager.stop(false); // Stop music when component unmounts
       if (notificationTimeout.current) {
         clearTimeout(notificationTimeout.current);
       }
@@ -455,14 +425,14 @@ export function Game() {
    * Start or restart the game
    */
   const startGame = useCallback(() => {
-    initBGM(); // Initialize BGM on first interaction
     setGameState('playing');
     setRank(LEVELS[0].rank);
     setCombo(0);
     setComboMultiplier(1);
     setShopVisible(false); // Close shop when starting game
+    setSettingsVisible(false); // Close settings when starting game
     engineRef.current?.start();
-  }, [initBGM]);
+  }, []);
 
   /**
    * Open shop screen
@@ -478,6 +448,20 @@ export function Game() {
     setShopVisible(false);
     // Refresh total coins in case of purchases
     setTotalCoins(shopManager.getCoins());
+  }, []);
+
+  /**
+   * Open settings screen
+   */
+  const handleSettingsOpen = useCallback(() => {
+    setSettingsVisible(true);
+  }, []);
+
+  /**
+   * Close settings screen
+   */
+  const handleSettingsClose = useCallback(() => {
+    setSettingsVisible(false);
   }, []);
 
   /**
@@ -541,18 +525,17 @@ export function Game() {
           inkPercent={inkPercent}
           combo={combo}
           comboMultiplier={comboMultiplier}
-          muted={muted}
-          bgmMuted={bgmMuted}
-          bgmVolume={bgmVolume}
           lives={lives}
-          onMuteToggle={handleMuteToggle}
-          onBGMMuteToggle={handleBGMMuteToggle}
-          onBGMVolumeChange={handleBGMVolumeChange}
+          onSettingsClick={handleSettingsOpen}
         />
         <Notification title={notification.title} visible={notification.visible} />
       </div>
 
-      <StartScreen visible={gameState === 'start'} onStart={startGame} />
+      <StartScreen
+        visible={gameState === 'start'}
+        onStart={startGame}
+        onSettings={handleSettingsOpen}
+      />
       <GameOverScreen
         visible={gameState === 'gameover' && !shopVisible}
         finalScore={finalScore}
@@ -563,6 +546,16 @@ export function Game() {
       />
       <PauseScreen visible={paused && gameState === 'playing'} />
       <ShopScreen visible={shopVisible} onClose={handleCloseShop} />
+      <SettingsScreen
+        visible={settingsVisible}
+        sfxMuted={muted}
+        bgmMuted={bgmMuted}
+        bgmVolume={bgmVolume}
+        onSFXToggle={handleMuteToggle}
+        onBGMToggle={handleBGMMuteToggle}
+        onBGMVolumeChange={handleBGMVolumeChange}
+        onClose={handleSettingsClose}
+      />
     </>
   );
 }
