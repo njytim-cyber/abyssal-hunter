@@ -40,8 +40,11 @@ export class PowerUp {
   checkCollision(playerX: number, playerY: number, playerRadius: number): boolean {
     const dx = this.x - playerX;
     const dy = this.y - playerY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < this.radius + playerRadius;
+    // Performance: use squared distance to avoid expensive Math.sqrt()
+    const distSq = dx * dx + dy * dy;
+    const minDist = this.radius + playerRadius;
+    const minDistSq = minDist * minDist;
+    return distSq < minDistSq;
   }
 
   /**

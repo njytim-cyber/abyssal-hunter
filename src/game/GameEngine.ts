@@ -697,7 +697,10 @@ export class GameEngine {
     // Update projectiles and check collisions with entities
     this.projectilePool.update();
     for (const projectile of this.projectilePool.getAll()) {
-      for (const entity of this.entities) {
+      // Performance: use spatial grid to only check nearby entities
+      const nearbyEntities = this.spatialGrid.getNearby(projectile.x, projectile.y);
+
+      for (const entity of nearbyEntities) {
         if (entity.markedForDeath) continue; // Skip already-dead entities
         if (projectile.checkCollision(entity.x, entity.y, entity.radius)) {
           // Projectile hit entity - mark for removal
@@ -878,19 +881,17 @@ export class GameEngine {
     const targetScale = baseTargetScale * this.visionMultiplier;
     this.camera.scale += (targetScale - this.camera.scale) * 0.05;
 
+    // Performance: cache scaled dimensions to avoid repeated division
+    const scaledWidth = this.width / this.camera.scale;
+    const scaledHeight = this.height / this.camera.scale;
+
     // Camera position (centered on player)
-    this.camera.x = this.player.x - this.width / (2 * this.camera.scale);
-    this.camera.y = this.player.y - this.height / (2 * this.camera.scale);
+    this.camera.x = this.player.x - scaledWidth / 2;
+    this.camera.y = this.player.y - scaledHeight / 2;
 
     // Clamp camera to world bounds
-    this.camera.x = Math.max(
-      0,
-      Math.min(this.camera.x, CONFIG.worldSize - this.width / this.camera.scale)
-    );
-    this.camera.y = Math.max(
-      0,
-      Math.min(this.camera.y, CONFIG.worldSize - this.height / this.camera.scale)
-    );
+    this.camera.x = Math.max(0, Math.min(this.camera.x, CONFIG.worldSize - scaledWidth));
+    this.camera.y = Math.max(0, Math.min(this.camera.y, CONFIG.worldSize - scaledHeight));
 
     // Apply screen shake
     ctx.translate(this.shake.offsetX, this.shake.offsetY);
@@ -909,7 +910,25 @@ export class GameEngine {
     // Draw entities (disable glow for distant entities when too many for performance)
     const entityCount = this.entities.length;
     const glowDistanceThreshold = 800; // Only glow entities within 800px of player
+
+    // Viewport culling: calculate visible bounds in world coordinates
+    const viewportPadding = 200; // Extra padding for smooth edge transitions
+    const viewportLeft = this.camera.x - viewportPadding;
+    const viewportRight = this.camera.x + scaledWidth + viewportPadding;
+    const viewportTop = this.camera.y - viewportPadding;
+    const viewportBottom = this.camera.y + scaledHeight + viewportPadding;
+
     for (const entity of this.entities) {
+      // Viewport culling: skip entities completely outside visible area
+      if (
+        entity.x + entity.radius < viewportLeft ||
+        entity.x - entity.radius > viewportRight ||
+        entity.y + entity.radius < viewportTop ||
+        entity.y - entity.radius > viewportBottom
+      ) {
+        continue; // Entity is off-screen, skip rendering
+      }
+
       // Performance optimization: disable expensive shadow blur when many entities
       const enableGlow =
         entityCount < 60 ||

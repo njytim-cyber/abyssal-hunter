@@ -376,8 +376,11 @@ export class Boss {
     if (!this.active) return false;
     const dx = this.x - x;
     const dy = this.y - y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < this.radius + radius;
+    // Performance: use squared distance to avoid expensive Math.sqrt()
+    const distSq = dx * dx + dy * dy;
+    const minDist = this.radius + radius;
+    const minDistSq = minDist * minDist;
+    return distSq < minDistSq;
   }
 }
 

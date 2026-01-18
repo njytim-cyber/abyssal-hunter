@@ -308,6 +308,7 @@ export function drawStarsWithParallax(
   cameraY: number,
   frame: number
 ): void {
+  // Performance: use RGBA instead of globalAlpha to avoid 200+ state changes
   for (const star of stars) {
     const parallax = CONFIG.stars.parallaxFactors[star.layer];
     const x = star.x - cameraX * parallax;
@@ -317,11 +318,10 @@ export function drawStarsWithParallax(
     const twinkle = Math.sin(frame * star.twinkleSpeed + star.twinklePhase);
     const alpha = star.brightness * (0.7 + twinkle * 0.3);
 
-    ctx.globalAlpha = Math.max(0.1, alpha);
-    ctx.fillStyle = 'white';
+    // Use RGBA color directly instead of setting globalAlpha
+    ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.1, alpha)})`;
     ctx.beginPath();
     ctx.arc(x, y, star.size, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.globalAlpha = 1;
 }

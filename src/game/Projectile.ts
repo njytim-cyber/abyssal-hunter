@@ -59,8 +59,11 @@ export class Projectile {
   checkCollision(entityX: number, entityY: number, entityRadius: number): boolean {
     const dx = this.x - entityX;
     const dy = this.y - entityY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < this.radius + entityRadius;
+    // Performance: use squared distance to avoid expensive Math.sqrt()
+    const distSq = dx * dx + dy * dy;
+    const minDist = this.radius + entityRadius;
+    const minDistSq = minDist * minDist;
+    return distSq < minDistSq;
   }
 
   /**
