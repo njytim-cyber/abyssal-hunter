@@ -146,23 +146,11 @@ export class Entity {
       this.y += this.vy;
     }
 
-    // Bounce off world boundaries
-    if (this.x < 0) {
-      this.x = 0;
-      this.vx *= -1;
-    }
-    if (this.x > CONFIG.worldSize) {
-      this.x = CONFIG.worldSize;
-      this.vx *= -1;
-    }
-    if (this.y < 0) {
-      this.y = 0;
-      this.vy *= -1;
-    }
-    if (this.y > CONFIG.worldSize) {
-      this.y = CONFIG.worldSize;
-      this.vy *= -1;
-    }
+    // Wrap around world boundaries (like player)
+    if (this.x < 0) this.x = CONFIG.worldSize;
+    if (this.x > CONFIG.worldSize) this.x = 0;
+    if (this.y < 0) this.y = CONFIG.worldSize;
+    if (this.y > CONFIG.worldSize) this.y = 0;
   }
 
   /**

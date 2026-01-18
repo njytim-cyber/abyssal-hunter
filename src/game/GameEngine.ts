@@ -124,7 +124,7 @@ export class GameEngine {
 
   // Spawn protection (invincibility frames at start)
   private spawnProtection: number = 0;
-  private static readonly SPAWN_PROTECTION_FRAMES = 180; // 3 seconds at 60fps
+  private static readonly SPAWN_PROTECTION_FRAMES = 60; // 1 second at 60fps
 
   // Callbacks
   private callbacks: GameCallbacks | null = null;
@@ -387,10 +387,9 @@ export class GameEngine {
     const maxEnemiesScaled = Math.floor(CONFIG.spawn.maxEnemies * difficultyMultiplier);
 
     if (enemyCount < maxEnemiesScaled) {
-      // During spawn protection, only spawn prey so player can grow
       // Higher level = more predators - increased from 0.1 to 0.15
       const predatorChance = 0.4 + this.player.levelIndex * 0.15;
-      const isPredator = this.spawnProtection <= 0 && Math.random() < predatorChance;
+      const isPredator = Math.random() < predatorChance;
       let radius: number;
       let type: EntityType;
 
@@ -733,7 +732,8 @@ export class GameEngine {
       this.player.levelIndex++;
       this.callbacks?.onLevelUp(nextLevel);
       audioManager.playLevelUp();
-      this.triggerShake(CONFIG.shake.hitIntensity);
+      // Reduced shake intensity to prevent slowdown during level up
+      this.triggerShake(5);
     }
   }
 
