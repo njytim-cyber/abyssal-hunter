@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo, type ReactNode } from 'react';
 
 import { GameEngine, Level, LEVELS, CONFIG } from '../game';
+import { bgmManager } from '../game/BGMManager';
 import { shopManager } from '../game/ShopManager';
 
 import { ShopScreen } from './ShopScreen';
@@ -12,7 +13,12 @@ interface HUDProps {
   combo: number;
   comboMultiplier: number;
   muted: boolean;
+  bgmMuted: boolean;
+  bgmVolume: number;
+  lives: number;
   onMuteToggle: () => void;
+  onBGMMuteToggle: () => void;
+  onBGMVolumeChange: (volume: number) => void;
 }
 
 /**
@@ -25,7 +31,12 @@ const HUD = memo(function HUD({
   combo,
   comboMultiplier,
   muted,
+  bgmMuted,
+  bgmVolume,
+  lives,
   onMuteToggle,
+  onBGMMuteToggle,
+  onBGMVolumeChange,
 }: HUDProps) {
   return (
     <div className="hud">
@@ -35,6 +46,13 @@ const HUD = memo(function HUD({
       </div>
       <div className="stat rank-display">
         RANK: <span id="rank">{rank}</span>
+      </div>
+      <div className="lives-display">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <span key={i} className={`life-heart ${i < lives ? 'active' : 'lost'}`}>
+            ❤
+          </span>
+        ))}
       </div>
       <div className="bar-container">
         <div
@@ -51,9 +69,34 @@ const HUD = memo(function HUD({
           <span className="combo-label">COMBO</span>
         </div>
       )}
-      <button className="mute-btn" onClick={onMuteToggle} aria-label={muted ? 'Unmute' : 'Mute'}>
-        {muted ? '🔇' : '🔊'}
-      </button>
+      <div className="audio-controls">
+        <button
+          className="mute-btn"
+          onClick={onMuteToggle}
+          aria-label={muted ? 'Unmute SFX' : 'Mute SFX'}
+        >
+          {muted ? '🔇' : '🔊'} SFX
+        </button>
+        <button
+          className="mute-btn"
+          onClick={onBGMMuteToggle}
+          aria-label={bgmMuted ? 'Unmute Music' : 'Mute Music'}
+        >
+          {bgmMuted ? '🔇' : '🎵'} BGM
+        </button>
+        <div className="volume-control">
+          <label htmlFor="bgm-volume">🎵</label>
+          <input
+            id="bgm-volume"
+            type="range"
+            min="0"
+            max="100"
+            value={bgmVolume * 100}
+            onChange={e => onBGMVolumeChange(parseFloat(e.target.value) / 100)}
+            aria-label="Music Volume"
+          />
+        </div>
+      </div>
       <div className="controls-hint">
         WASD/Arrows to move • Space/Click to dash • ESC/P to pause
       </div>
@@ -215,11 +258,17 @@ export function Game() {
   const [comboMultiplier, setComboMultiplier] = useState(1);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [lives, setLives] = useState(3);
 
   // Shop state
   const [shopVisible, setShopVisible] = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [totalCoins, setTotalCoins] = useState(0);
+
+  // BGM state
+  const [bgmMuted, setBGMMuted] = useState(false);
+  const [bgmVolume, setBGMVolume] = useState(0.3);
+  const [bgmInitialized, setBGMInitialized] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({ title: '', visible: false });
@@ -243,12 +292,38 @@ export function Game() {
   }, []);
 
   /**
-   * Handle mute toggle
+   * Handle SFX mute toggle
    */
   const handleMuteToggle = useCallback(() => {
     const newMuted = engineRef.current?.toggleMute() ?? false;
     setMuted(newMuted);
   }, []);
+
+  /**
+   * Handle BGM mute toggle
+   */
+  const handleBGMMuteToggle = useCallback(() => {
+    const newMuted = bgmManager.toggleMute();
+    setBGMMuted(newMuted);
+  }, []);
+
+  /**
+   * Handle BGM volume change
+   */
+  const handleBGMVolumeChange = useCallback((volume: number) => {
+    bgmManager.setVolume(volume);
+    setBGMVolume(volume);
+  }, []);
+
+  /**
+   * Initialize BGM on first user interaction
+   */
+  const initBGM = useCallback(() => {
+    if (!bgmInitialized) {
+      bgmManager.preloadAll();
+      setBGMInitialized(true);
+    }
+  }, [bgmInitialized]);
 
   /**
    * Initialize game engine
@@ -275,6 +350,7 @@ export function Game() {
         setCombo(count);
         setComboMultiplier(multiplier);
       },
+      onLivesChange: setLives,
     });
 
     // Handle resize
@@ -379,13 +455,14 @@ export function Game() {
    * Start or restart the game
    */
   const startGame = useCallback(() => {
+    initBGM(); // Initialize BGM on first interaction
     setGameState('playing');
     setRank(LEVELS[0].rank);
     setCombo(0);
     setComboMultiplier(1);
     setShopVisible(false); // Close shop when starting game
     engineRef.current?.start();
-  }, []);
+  }, [initBGM]);
 
   /**
    * Open shop screen
@@ -403,6 +480,56 @@ export function Game() {
     setTotalCoins(shopManager.getCoins());
   }, []);
 
+  /**
+   * Handle BGM transitions based on game state
+   */
+  useEffect(() => {
+    if (!bgmInitialized) return;
+
+    if (shopVisible) {
+      // Shop music
+      bgmManager.play('shop', true);
+    } else if (gameState === 'start') {
+      // Main menu music
+      bgmManager.play('menu', true);
+    } else if (gameState === 'gameover') {
+      // Game over music
+      bgmManager.play('gameOver', true);
+    } else if (gameState === 'playing') {
+      // Gameplay music (will be overridden by boss music)
+      bgmManager.play('gameplay', true);
+    }
+  }, [gameState, shopVisible, bgmInitialized]);
+
+  /**
+   * Handle boss battle music transitions
+   */
+  useEffect(() => {
+    if (!bgmInitialized || gameState !== 'playing') return;
+
+    const checkBossMusic = setInterval(() => {
+      const engine = engineRef.current;
+      if (!engine) return;
+
+      // Check if boss is active (needs to be exposed from GameEngine)
+      // For now, we'll check based on game time as a fallback
+      // TODO: Expose boss state from GameEngine
+    }, 1000);
+
+    return () => clearInterval(checkBossMusic);
+  }, [gameState, bgmInitialized]);
+
+  /**
+   * Handle pause/resume music
+   */
+  useEffect(() => {
+    if (paused) {
+      bgmManager.pause();
+    } else if (gameState === 'playing') {
+      bgmManager.resume();
+    }
+  }, [paused, gameState]);
+
   return (
     <>
       <canvas ref={canvasRef} id="gameCanvas" />
@@ -415,7 +542,12 @@ export function Game() {
           combo={combo}
           comboMultiplier={comboMultiplier}
           muted={muted}
+          bgmMuted={bgmMuted}
+          bgmVolume={bgmVolume}
+          lives={lives}
           onMuteToggle={handleMuteToggle}
+          onBGMMuteToggle={handleBGMMuteToggle}
+          onBGMVolumeChange={handleBGMVolumeChange}
         />
         <Notification title={notification.title} visible={notification.visible} />
       </div>

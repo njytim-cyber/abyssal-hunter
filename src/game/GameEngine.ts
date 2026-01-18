@@ -68,6 +68,7 @@ export interface GameCallbacks {
   onInkChange: (ink: number, maxInk: number) => void;
   onGameOver: (finalScore: number) => void;
   onComboChange?: (combo: number, multiplier: number) => void;
+  onLivesChange?: (lives: number) => void;
 }
 
 /**
@@ -146,6 +147,10 @@ export class GameEngine {
   private bossSpawnIndex: number = 0;
   private gameStartTime: number = 0;
 
+  // Lives system
+  private lives: number = 3;
+  private static readonly MAX_LIVES = 3;
+
   constructor() {
     this.player = new Player();
     this.particlePool = new ParticlePool(300);
@@ -167,6 +172,7 @@ export class GameEngine {
     // Initial UI update
     this.callbacks.onScoreChange(Math.floor(this.player.radius));
     this.callbacks.onInkChange(this.player.ink, CONFIG.player.maxInk);
+    this.callbacks.onLivesChange?.(this.lives);
   }
 
   /**
@@ -316,6 +322,7 @@ export class GameEngine {
     this.currentBoss = null;
     this.bossSpawnIndex = 0;
     this.gameStartTime = Date.now();
+    this.lives = GameEngine.MAX_LIVES;
 
     // Apply shop upgrades to player
     const upgrades = shopManager.getUpgradeMultipliers();
@@ -332,6 +339,7 @@ export class GameEngine {
     // Notify UI
     this.callbacks?.onScoreChange(Math.floor(this.player.radius));
     this.callbacks?.onInkChange(this.player.ink, CONFIG.player.maxInk);
+    this.callbacks?.onLivesChange?.(this.lives);
 
     // Start ambient audio
     audioManager.startAmbient();
@@ -834,21 +842,78 @@ export class GameEngine {
   }
 
   /**
-   * Handles game over
+   * Handles game over or life loss
    */
   private gameOver(): void {
-    this.running = false;
+    // Reduce lives
+    this.lives--;
+    this.callbacks?.onLivesChange?.(this.lives);
+
     audioManager.playDeath();
-    audioManager.stopAmbient();
 
-    const finalScore = Math.floor(this.player.radius);
+    // Visual feedback for life loss
+    this.particlePool.spawnBurst(this.player.x, this.player.y, 50, '#ff0000', 12, 'explosion');
+    this.floatingTextPool.acquire(
+      this.player.x,
+      this.player.y - 50,
+      this.lives > 0 ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT!` : 'GAME OVER',
+      '#ff0000'
+    );
+    this.triggerShake(20);
 
-    // Award coins based on score (1 coin per radius gained above starting size)
-    const coinsEarned = Math.max(0, finalScore - CONFIG.player.startRadius);
-    shopManager.addCoins(coinsEarned);
-    shopManager.recordGame();
+    if (this.lives > 0) {
+      // Still have lives - respawn
+      this.respawn();
+    } else {
+      // Out of lives - actual game over
+      this.running = false;
+      audioManager.stopAmbient();
 
-    this.callbacks?.onGameOver(finalScore);
+      const finalScore = Math.floor(this.player.radius);
+
+      // Award coins based on score (1 coin per radius gained above starting size)
+      const coinsEarned = Math.max(0, finalScore - CONFIG.player.startRadius);
+      shopManager.addCoins(coinsEarned);
+      shopManager.recordGame();
+
+      this.callbacks?.onGameOver(finalScore);
+    }
+  }
+
+  /**
+   * Respawns the player after losing a life
+   */
+  private respawn(): void {
+    // Reset player to starting position with current size preserved
+    const savedRadius = this.player.radius;
+    const savedLevelIndex = this.player.levelIndex;
+    this.player = new Player();
+    this.player.radius = savedRadius;
+    this.player.levelIndex = savedLevelIndex;
+
+    // Clear nearby threats
+    this.entities = this.entities.filter(e => {
+      const dx = e.x - this.player.x;
+      const dy = e.y - this.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist > 500; // Remove entities within 500px
+    });
+
+    // Reset combat state
+    this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES * 3; // 3 seconds invincibility
+    this.player.ink = CONFIG.player.maxInk; // Restore ink
+    this.callbacks?.onInkChange(this.player.ink, CONFIG.player.maxInk);
+
+    // Visual respawn effect
+    this.particlePool.spawnBurst(
+      this.player.x,
+      this.player.y,
+      30,
+      CONFIG.colors.playerGlow,
+      8,
+      'sparkle'
+    );
+    this.floatingTextPool.acquire(this.player.x, this.player.y - 30, 'RESPAWN!', '#00ffff');
   }
 
   /**
