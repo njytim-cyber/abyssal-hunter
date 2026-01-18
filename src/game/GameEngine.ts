@@ -8,6 +8,7 @@ import { PowerUp } from './PowerUp';
 import { ActivePowerUp, POWER_UP_CONFIG, POWER_UP_DEFINITIONS, PowerUpType } from './PowerUpTypes';
 import { ProjectilePool } from './Projectile';
 import { shopManager } from './ShopManager';
+import { SpatialGrid } from './SpatialGrid';
 
 /**
  * Camera state for smooth following
@@ -136,12 +137,16 @@ export class GameEngine {
   private xpMultiplier: number = 1;
   private visionMultiplier: number = 1;
 
+  // Spatial grid for optimized collision detection
+  private spatialGrid: SpatialGrid;
+
   constructor() {
     this.player = new Player();
     this.particlePool = new ParticlePool(300);
     this.projectilePool = new ProjectilePool(50);
     this.floatingTextPool = new FloatingTextPool();
     this.stars = createStars(CONFIG.stars.count, CONFIG.worldSize);
+    this.spatialGrid = new SpatialGrid(300); // 300px cells
   }
 
   /**
@@ -497,11 +502,9 @@ export class GameEngine {
       this.callbacks?.onComboChange?.(0, 1);
     }
 
-    // Update entities and check collisions
-    for (let i = this.entities.length - 1; i >= 0; i--) {
+    // Update all entities first
+    for (let i = 0; i < this.entities.length; i++) {
       const e = this.entities[i];
-
-      // Update dynamic types
       e.updateType(playerRadius);
       e.update(playerX, playerY, this.frame);
 
@@ -509,21 +512,35 @@ export class GameEngine {
       if (this.hasPowerUp('magnet') && e.type === 'food') {
         const dx = playerX - e.x;
         const dy = playerY - e.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 800 && d > 0) {
-          // Pull food toward player
+        const dist = dx * dx + dy * dy; // Use squared distance to avoid sqrt
+        if (dist < 640000 && dist > 0) {
+          // 640000 = 800^2
+          const d = Math.sqrt(dist);
           const pullStrength = 2;
           e.x += (dx / d) * pullStrength;
           e.y += (dy / d) * pullStrength;
         }
       }
+    }
 
-      // Collision detection
+    // Build spatial grid for optimized collision detection
+    this.spatialGrid.build(this.entities);
+
+    // Get nearby entities using spatial grid
+    const nearbyEntities = this.spatialGrid.getNearby(playerX, playerY);
+
+    // Check collisions only with nearby entities
+    for (let i = nearbyEntities.length - 1; i >= 0; i--) {
+      const e = nearbyEntities[i];
+
+      // Collision detection using squared distance (faster)
       const dx = playerX - e.x;
       const dy = playerY - e.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
+      const distSq = dx * dx + dy * dy;
+      const minDist = playerRadius + e.radius;
+      const minDistSq = minDist * minDist;
 
-      if (d < playerRadius + e.radius) {
+      if (distSq < minDistSq) {
         if (playerRadius > e.radius) {
           // Eat entity
           const baseGain = e.type === 'food' ? 0.3 : e.radius * 0.2;
@@ -571,7 +588,11 @@ export class GameEngine {
             }
           }
 
-          this.entities.splice(i, 1);
+          // Remove entity from original array
+          const entityIndex = this.entities.indexOf(e);
+          if (entityIndex !== -1) {
+            this.entities.splice(entityIndex, 1);
+          }
 
           // Screen shake & sound
           this.triggerShake(e.type === 'food' ? 1 : CONFIG.shake.eatIntensity);
@@ -585,7 +606,10 @@ export class GameEngine {
           if (this.hasPowerUp('shield')) {
             // Shield blocks the hit - remove shield and entity
             this.activePowerUps = this.activePowerUps.filter(p => p.type !== 'shield');
-            this.entities.splice(i, 1);
+            const entityIndex = this.entities.indexOf(e);
+            if (entityIndex !== -1) {
+              this.entities.splice(entityIndex, 1);
+            }
             this.particlePool.spawnBurst(
               this.player.x,
               this.player.y,
