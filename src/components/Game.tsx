@@ -289,6 +289,17 @@ export function Game() {
   }, []);
 
   /**
+   * Initialize BGM on first user interaction (required by browser autoplay policy)
+   */
+  const initBGMOnFirstInteraction = useCallback(() => {
+    if (!bgmInitialized) {
+      setBGMInitialized(true);
+      // Start playing menu music after user interaction
+      void bgmManager.play('menu', false);
+    }
+  }, [bgmInitialized]);
+
+  /**
    * Initialize game engine
    */
   useEffect(() => {
@@ -316,11 +327,8 @@ export function Game() {
       onLivesChange: setLives,
     });
 
-    // Initialize BGM immediately
+    // Preload BGM but don't play yet (browser autoplay policy)
     bgmManager.preloadAll();
-    setBGMInitialized(true);
-    // Play menu music on load
-    void bgmManager.play('menu', false);
 
     // Handle resize
     const handleResize = () => engine.handleResize();
@@ -425,6 +433,7 @@ export function Game() {
    * Start or restart the game
    */
   const startGame = useCallback(() => {
+    initBGMOnFirstInteraction(); // Initialize BGM on first user interaction
     setGameState('playing');
     setRank(LEVELS[0].rank);
     setCombo(0);
@@ -432,7 +441,7 @@ export function Game() {
     setShopVisible(false); // Close shop when starting game
     setSettingsVisible(false); // Close settings when starting game
     engineRef.current?.start();
-  }, []);
+  }, [initBGMOnFirstInteraction]);
 
   /**
    * Open shop screen
@@ -454,8 +463,9 @@ export function Game() {
    * Open settings screen
    */
   const handleSettingsOpen = useCallback(() => {
+    initBGMOnFirstInteraction(); // Initialize BGM on first user interaction
     setSettingsVisible(true);
-  }, []);
+  }, [initBGMOnFirstInteraction]);
 
   /**
    * Close settings screen
