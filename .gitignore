@@ -26,6 +26,13 @@ npm-debug.log*
 # Test coverage
 coverage/
 
+# Playwright test artifacts
+playwright-report/
+test-results/
+
+# Claude Code local settings
+.claude/settings.local.json
+
 # Misc
 *.tsbuildinfo
 

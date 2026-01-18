@@ -207,6 +207,50 @@ git push                        # Push to remote
 
 ---
 
+### Repository Cleanup
+
+#### 6. Gitignore Management
+
+**Problem**: Repository had untracked test artifacts and local settings files showing as pending changes:
+
+- `playwright-report/` - Playwright test report artifacts
+- `test-results/` - Playwright test results directory
+- `.claude/settings.local.json` - Local Claude Code settings
+
+**Root Cause**: These files/directories were not in `.gitignore`, causing them to appear as pending changes and potentially be committed accidentally.
+
+**Solution**: Updated `.gitignore` to exclude:
+
+```gitignore
+# Playwright test artifacts
+playwright-report/
+test-results/
+
+# Claude Code local settings
+.claude/settings.local.json
+```
+
+**For already-tracked files**: Used `git rm --cached` to remove from tracking while keeping the local file:
+
+```bash
+git rm --cached .claude/settings.local.json
+```
+
+**Key Learning**:
+
+- Keep repository clean by ignoring build artifacts, test reports, and local settings
+- Use `git rm --cached <file>` to untrack files without deleting them locally
+- Regularly review `git status` to catch files that should be ignored
+- Test artifacts and local configuration should never be committed to the repository
+- Common categories to ignore:
+  - Build outputs (`dist/`, `build/`)
+  - Test artifacts (`coverage/`, `playwright-report/`, `test-results/`)
+  - Local settings (`.env.local`, `.claude/settings.local.json`)
+  - IDE-specific files (`.vscode/`, `.idea/`)
+  - OS files (`.DS_Store`, `Thumbs.db`)
+
+---
+
 ### Best Practices Learned
 
 1. **Test Selectors**: Use specific, scoped selectors in E2E tests to avoid ambiguity
@@ -235,6 +279,8 @@ git push                        # Push to remote
 - `tests/game.spec.ts` - Fixed selector specificity
 - `wrangler.toml` - Removed unsupported build config for Pages
 - `package-lock.json` - Updated with new dependency
+- `.gitignore` - Added test artifacts and local settings
+- `.claude/settings.local.json` - Removed from git tracking
 
 ### Commit Reference
 
