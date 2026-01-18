@@ -11,6 +11,10 @@ export class FloatingText {
   vy: number;
   scale: number;
 
+  // Performance optimization: cache font string
+  private cachedFont: string = 'bold 20px sans-serif';
+  private lastFontSize: number = 20;
+
   constructor(x: number, y: number, text: string, color: string = '#ffffff') {
     this.x = x;
     this.y = y;
@@ -39,7 +43,15 @@ export class FloatingText {
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     ctx.globalAlpha = Math.max(0, this.life);
-    ctx.font = `bold ${Math.floor(20 * this.scale)}px sans-serif`;
+
+    // Performance optimization: only recreate font string if size changed
+    const fontSize = Math.floor(20 * this.scale);
+    if (fontSize !== this.lastFontSize) {
+      this.lastFontSize = fontSize;
+      this.cachedFont = `bold ${fontSize}px sans-serif`;
+    }
+    ctx.font = this.cachedFont;
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 

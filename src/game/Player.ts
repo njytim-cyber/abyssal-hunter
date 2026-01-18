@@ -105,6 +105,10 @@ export class Player {
   // Glow animation
   private glowPhase: number = 0;
 
+  // Performance optimization: throttle tentacle updates
+  private tentacleUpdateCounter: number = 0;
+  private static readonly TENTACLE_UPDATE_INTERVAL = 2; // Update every 2 frames
+
   private static readonly TENTACLE_COUNT = 8;
 
   constructor() {
@@ -116,6 +120,7 @@ export class Player {
     this.levelIndex = 0;
     this.tentacles = [];
     this.glowPhase = 0;
+    this.tentacleUpdateCounter = 0;
 
     for (let i = 0; i < Player.TENTACLE_COUNT; i++) {
       this.tentacles.push(new Tentacle(100, 10));
@@ -160,17 +165,22 @@ export class Player {
     if (this.y < 0) this.y = CONFIG.worldSize;
     if (this.y > CONFIG.worldSize) this.y = 0;
 
-    // Update tentacles
-    const tentacleRad = this.radius * 0.6;
-    const tension = isDashing ? 0.3 : 0.6;
+    // Update tentacles (throttled for performance)
+    this.tentacleUpdateCounter++;
+    if (this.tentacleUpdateCounter >= Player.TENTACLE_UPDATE_INTERVAL) {
+      this.tentacleUpdateCounter = 0;
 
-    for (let i = 0; i < this.tentacles.length; i++) {
-      const t = this.tentacles[i];
-      const offset = this.angle + (i / Player.TENTACLE_COUNT) * Math.PI * 2;
-      const tx = this.x + Math.cos(offset) * tentacleRad;
-      const ty = this.y + Math.sin(offset) * tentacleRad;
-      t.length = this.radius * 4;
-      t.update(tx, ty, this.angle, tension);
+      const tentacleRad = this.radius * 0.6;
+      const tension = isDashing ? 0.3 : 0.6;
+
+      for (let i = 0; i < this.tentacles.length; i++) {
+        const t = this.tentacles[i];
+        const offset = this.angle + (i / Player.TENTACLE_COUNT) * Math.PI * 2;
+        const tx = this.x + Math.cos(offset) * tentacleRad;
+        const ty = this.y + Math.sin(offset) * tentacleRad;
+        t.length = this.radius * 4;
+        t.update(tx, ty, this.angle, tension);
+      }
     }
 
     // Update glow animation

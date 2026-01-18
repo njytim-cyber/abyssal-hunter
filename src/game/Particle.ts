@@ -112,12 +112,14 @@ export class Particle {
 
   /**
    * Renders the particle with fade-out effect
+   * @param ctx - Canvas rendering context
+   * @param enableGlow - Whether to render expensive glow effect (default true)
    */
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, enableGlow: boolean = true): void {
     const alpha = Math.max(0, this.life);
 
-    // Add glow effect for certain particle types
-    if (this.glow && alpha > 0.1) {
+    // Add glow effect for certain particle types (expensive operation)
+    if (enableGlow && this.glow && alpha > 0.1) {
       ctx.save();
       ctx.globalAlpha = alpha * 0.3;
       ctx.fillStyle = this.color;
@@ -238,8 +240,10 @@ export class ParticlePool {
    * Draw all active particles
    */
   draw(ctx: CanvasRenderingContext2D): void {
+    // Performance optimization: disable glow when too many particles
+    const enableGlow = this.active.length < 80;
     for (const p of this.active) {
-      p.draw(ctx);
+      p.draw(ctx, enableGlow);
     }
   }
 

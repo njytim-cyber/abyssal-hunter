@@ -11,6 +11,11 @@ export class AudioManager {
   private ambientGain: GainNode | null = null;
   private muted: boolean = false;
 
+  // Performance optimization: throttle frequent audio calls
+  private lastEatSound: number = 0;
+  private lastComboSound: number = 0;
+  private readonly AUDIO_THROTTLE_MS = 50; // Min 50ms between same sound type
+
   constructor() {
     // AudioContext is created on first user interaction
   }
@@ -84,6 +89,11 @@ export class AudioManager {
    */
   playEat(size: number = 1): void {
     if (!this.ensureContext() || !this.ctx || !this.masterGain || this.muted) return;
+
+    // Performance optimization: throttle rapid eat sounds
+    const now = performance.now();
+    if (now - this.lastEatSound < this.AUDIO_THROTTLE_MS) return;
+    this.lastEatSound = now;
 
     const baseFreq = 300 + Math.min(size, 5) * 100;
 
@@ -161,6 +171,11 @@ export class AudioManager {
    */
   playCombo(multiplier: number): void {
     if (!this.ensureContext() || !this.ctx || !this.masterGain || this.muted) return;
+
+    // Performance optimization: throttle rapid combo sounds
+    const now = performance.now();
+    if (now - this.lastComboSound < this.AUDIO_THROTTLE_MS) return;
+    this.lastComboSound = now;
 
     const baseFreq = 400 + multiplier * 100;
 

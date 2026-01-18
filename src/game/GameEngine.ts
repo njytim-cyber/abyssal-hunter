@@ -615,11 +615,8 @@ export class GameEngine {
             }
           }
 
-          // Remove entity from original array
-          const entityIndex = this.entities.indexOf(e);
-          if (entityIndex !== -1) {
-            this.entities.splice(entityIndex, 1);
-          }
+          // Mark entity for removal (batched cleanup for performance)
+          e.markedForDeath = true;
 
           // Screen shake & sound
           this.triggerShake(e.type === 'food' ? 1 : CONFIG.shake.eatIntensity);
@@ -633,10 +630,7 @@ export class GameEngine {
           if (this.hasPowerUp('shield')) {
             // Shield blocks the hit - remove shield and entity
             this.activePowerUps = this.activePowerUps.filter(p => p.type !== 'shield');
-            const entityIndex = this.entities.indexOf(e);
-            if (entityIndex !== -1) {
-              this.entities.splice(entityIndex, 1);
-            }
+            e.markedForDeath = true;
             this.particlePool.spawnBurst(
               this.player.x,
               this.player.y,
@@ -703,11 +697,11 @@ export class GameEngine {
     // Update projectiles and check collisions with entities
     this.projectilePool.update();
     for (const projectile of this.projectilePool.getAll()) {
-      for (let i = this.entities.length - 1; i >= 0; i--) {
-        const entity = this.entities[i];
+      for (const entity of this.entities) {
+        if (entity.markedForDeath) continue; // Skip already-dead entities
         if (projectile.checkCollision(entity.x, entity.y, entity.radius)) {
-          // Projectile hit entity - remove both
-          this.entities.splice(i, 1);
+          // Projectile hit entity - mark for removal
+          entity.markedForDeath = true;
           this.projectilePool.remove(projectile);
 
           // Explosion effect
@@ -724,6 +718,9 @@ export class GameEngine {
         }
       }
     }
+
+    // Batch remove dead entities (performance optimization)
+    this.entities = this.entities.filter(e => !e.markedForDeath);
 
     // Update player
     this.playerDashing = this.player.update(inputX, inputY, inputActive);
@@ -909,9 +906,16 @@ export class GameEngine {
     ctx.lineWidth = 50;
     ctx.strokeRect(0, 0, CONFIG.worldSize, CONFIG.worldSize);
 
-    // Draw entities
+    // Draw entities (disable glow for distant entities when too many for performance)
+    const entityCount = this.entities.length;
+    const glowDistanceThreshold = 800; // Only glow entities within 800px of player
     for (const entity of this.entities) {
-      entity.draw(ctx, this.frame);
+      // Performance optimization: disable expensive shadow blur when many entities
+      const enableGlow =
+        entityCount < 60 ||
+        (Math.abs(entity.x - this.player.x) < glowDistanceThreshold &&
+          Math.abs(entity.y - this.player.y) < glowDistanceThreshold);
+      entity.draw(ctx, this.frame, enableGlow);
     }
 
     // Draw boss (if active)

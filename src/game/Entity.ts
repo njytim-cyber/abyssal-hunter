@@ -31,6 +31,7 @@ export class Entity {
   vy: number;
   shape: CreatureShape;
   private frameOffset: number; // For animation variety
+  markedForDeath: boolean = false; // Performance optimization: batch removal
 
   constructor(type: EntityType, x: number, y: number, r: number) {
     this.type = type;
@@ -155,33 +156,38 @@ export class Entity {
 
   /**
    * Renders the entity based on its shape
+   * @param ctx - Canvas rendering context
+   * @param frame - Current frame number
+   * @param enableGlow - Whether to enable expensive shadow blur (default true)
    */
-  draw(ctx: CanvasRenderingContext2D, frame: number): void {
+  draw(ctx: CanvasRenderingContext2D, frame: number, enableGlow: boolean = true): void {
     const angle = Math.atan2(this.vy, this.vx);
     const animFrame = frame + this.frameOffset;
 
-    // Enhanced glow effect based on entity type
-    const pulse = Math.sin(frame * 0.05 + this.frameOffset) * 0.5 + 0.5;
-    let glowIntensity = 10;
-    let glowColor = this.color;
+    // Enhanced glow effect based on entity type (only if enabled for performance)
+    if (enableGlow) {
+      const pulse = Math.sin(frame * 0.05 + this.frameOffset) * 0.5 + 0.5;
+      let glowIntensity = 10;
+      let glowColor = this.color;
 
-    switch (this.type) {
-      case 'food':
-        glowIntensity = 8 + pulse * 5;
-        glowColor = CONFIG.colors.foodGlow;
-        break;
-      case 'prey':
-        glowIntensity = 12 + pulse * 6;
-        glowColor = CONFIG.colors.preyGlow;
-        break;
-      case 'predator':
-        glowIntensity = 18 + pulse * 10;
-        glowColor = CONFIG.colors.predatorGlow;
-        break;
+      switch (this.type) {
+        case 'food':
+          glowIntensity = 8 + pulse * 5;
+          glowColor = CONFIG.colors.foodGlow;
+          break;
+        case 'prey':
+          glowIntensity = 12 + pulse * 6;
+          glowColor = CONFIG.colors.preyGlow;
+          break;
+        case 'predator':
+          glowIntensity = 18 + pulse * 10;
+          glowColor = CONFIG.colors.predatorGlow;
+          break;
+      }
+
+      ctx.shadowBlur = glowIntensity;
+      ctx.shadowColor = glowColor;
     }
-
-    ctx.shadowBlur = glowIntensity;
-    ctx.shadowColor = glowColor;
 
     switch (this.shape) {
       case 'fish':
