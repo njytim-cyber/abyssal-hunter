@@ -33,15 +33,6 @@ interface KeyboardState {
 }
 
 /**
- * Screen shake state
- */
-interface ScreenShake {
-  intensity: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-/**
  * Combo tracking
  */
 interface ComboState {
@@ -118,9 +109,6 @@ export class GameEngine {
     shoot: false,
   };
   private usingKeyboard: boolean = false;
-
-  // Screen shake
-  private shake: ScreenShake = { intensity: 0, offsetX: 0, offsetY: 0 };
 
   // Combo system
   private combo: ComboState = { count: 0, lastEatTime: 0, multiplier: 1 };
@@ -265,9 +253,10 @@ export class GameEngine {
   /**
    * Trigger screen shake
    */
-  triggerShake(intensity: number): void {
-    this.shake.intensity = Math.max(this.shake.intensity, intensity);
-  }
+  // Screen shake disabled for ultra-smooth gameplay
+  // triggerShake(intensity: number): void {
+  //   this.shake.intensity = Math.max(this.shake.intensity, intensity);
+  // }
 
   /**
    * Toggle audio mute
@@ -315,7 +304,6 @@ export class GameEngine {
     this.running = true;
     this.paused = false;
     this.combo = { count: 0, lastEatTime: 0, multiplier: 1 };
-    this.shake = { intensity: 0, offsetX: 0, offsetY: 0 };
     this.spawnProtection = GameEngine.SPAWN_PROTECTION_FRAMES;
     this.shootCharge = 0;
     this.lastShootTime = 0;
@@ -375,7 +363,8 @@ export class GameEngine {
       if (!this.paused) {
         this.spawnEntities();
         this.updatePhysics();
-        this.updateShake();
+        // Screen shake disabled for performance
+        // this.updateShake();
         this.frame++;
       }
       this.render();
@@ -653,7 +642,6 @@ export class GameEngine {
               'explosion'
             );
             this.floatingTextPool.acquire(this.player.x, this.player.y - 40, 'BLOCKED!', '#ffaa00');
-            this.triggerShake(5);
             // Play shield sound
             continue;
           }
@@ -682,7 +670,6 @@ export class GameEngine {
         // Visual feedback
         this.particlePool.spawnBurst(powerUp.x, powerUp.y, 20, def.color, 8, 'sparkle');
         this.floatingTextPool.acquire(powerUp.x, powerUp.y - 30, def.name, def.color);
-        this.triggerShake(2);
 
         // Play sound (will add audio later)
         // audioManager.playPowerUpPickup();
@@ -723,7 +710,6 @@ export class GameEngine {
           // Explosion effect
           this.particlePool.spawnBurst(entity.x, entity.y, 15, entity.color, 8, 'explosion');
           this.floatingTextPool.acquire(entity.x, entity.y - 20, 'HIT!', CONFIG.colors.ink);
-          this.triggerShake(3);
 
           // Award some score
           const gain = entity.radius * 0.1;
@@ -820,17 +806,18 @@ export class GameEngine {
   /**
    * Update screen shake
    */
-  private updateShake(): void {
-    if (this.shake.intensity > 0.1) {
-      this.shake.offsetX = (Math.random() - 0.5) * this.shake.intensity * 2;
-      this.shake.offsetY = (Math.random() - 0.5) * this.shake.intensity * 2;
-      this.shake.intensity *= CONFIG.shake.decay;
-    } else {
-      this.shake.intensity = 0;
-      this.shake.offsetX = 0;
-      this.shake.offsetY = 0;
-    }
-  }
+  // Screen shake disabled for ultra-smooth gameplay
+  // private updateShake(): void {
+  //   if (this.shake.intensity > 0.1) {
+  //     this.shake.offsetX = (Math.random() - 0.5) * this.shake.intensity * 2;
+  //     this.shake.offsetY = (Math.random() - 0.5) * this.shake.intensity * 2;
+  //     this.shake.intensity *= CONFIG.shake.decay;
+  //   } else {
+  //     this.shake.intensity = 0;
+  //     this.shake.offsetX = 0;
+  //     this.shake.offsetY = 0;
+  //   }
+  // }
 
   /**
    * Checks if player should level up
@@ -841,8 +828,6 @@ export class GameEngine {
       this.player.levelIndex++;
       this.callbacks?.onLevelUp(nextLevel);
       audioManager.playLevelUp();
-      // Reduced shake intensity to prevent slowdown during level up
-      this.triggerShake(5);
     }
   }
 
@@ -864,7 +849,6 @@ export class GameEngine {
       this.lives > 0 ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT!` : 'GAME OVER',
       '#ff0000'
     );
-    this.triggerShake(20);
 
     if (this.lives > 0) {
       // Still have lives - respawn
@@ -949,7 +933,8 @@ export class GameEngine {
     // Calculate camera scale based on player size (with vision upgrade multiplier)
     const baseTargetScale = Math.max(0.15, Math.min(1.5, 30 / (this.player.radius + 10)));
     const targetScale = baseTargetScale * this.visionMultiplier;
-    this.camera.scale += (targetScale - this.camera.scale) * 0.05;
+    // Faster camera zoom for ultra-smooth gameplay (was 0.05)
+    this.camera.scale += (targetScale - this.camera.scale) * 0.2;
 
     // Performance: cache scaled dimensions to avoid repeated division
     const scaledWidth = this.width / this.camera.scale;
@@ -963,8 +948,8 @@ export class GameEngine {
     this.camera.x = Math.max(0, Math.min(this.camera.x, CONFIG.worldSize - scaledWidth));
     this.camera.y = Math.max(0, Math.min(this.camera.y, CONFIG.worldSize - scaledHeight));
 
-    // Apply screen shake
-    ctx.translate(this.shake.offsetX, this.shake.offsetY);
+    // Screen shake disabled for ultra-smooth gameplay
+    // ctx.translate(this.shake.offsetX, this.shake.offsetY);
 
     ctx.scale(this.camera.scale, this.camera.scale);
     ctx.translate(-this.camera.x, -this.camera.y);
@@ -1116,7 +1101,6 @@ export class GameEngine {
 
     // Visual feedback
     this.particlePool.spawnBurst(this.player.x, this.player.y, 8, CONFIG.colors.ink, 6, 'glow');
-    this.triggerShake(2);
 
     // Play sound
     // audioManager.playShoot();
