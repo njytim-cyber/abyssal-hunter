@@ -589,29 +589,35 @@ export class GameEngine {
           const gain = baseGain * (1 + (this.combo.multiplier - 1) * 0.2) * this.xpMultiplier;
           this.player.radius += gain;
 
-          // Spawn particles - optimized to reduce lag
-          const particleCount = Math.min(6 + this.combo.multiplier, 12);
+          // Spawn particles - minimal for performance
+          const particleCount = Math.min(4 + Math.floor(this.combo.multiplier * 0.5), 8);
           this.particlePool.spawnBurst(e.x, e.y, particleCount, e.color, 4, 'glow');
 
-          // Add sparkles for combos - reduced count
-          if (this.combo.multiplier > 1) {
-            const sparkleCount = Math.min(this.combo.multiplier, 6);
+          // Add sparkles for combos only on high combos
+          if (this.combo.multiplier > 3) {
+            const sparkleCount = Math.min(Math.floor(this.combo.multiplier * 0.5), 4);
             this.particlePool.spawnBurst(e.x, e.y, sparkleCount, CONFIG.colors.combo, 6, 'sparkle');
           }
 
-          // Floating score text
-          const scoreText = e.type === 'food' ? '+1' : `+${Math.floor(gain * 10)}`;
-          const textColor = this.combo.multiplier > 1 ? CONFIG.colors.combo : '#ffffff';
-          this.floatingTextPool.acquire(e.x, e.y - 20, scoreText, textColor);
+          // Floating score text - show only on larger prey
+          if (e.type !== 'food' || this.combo.multiplier > 1) {
+            const scoreText = e.type === 'food' ? '+1' : `+${Math.floor(gain * 10)}`;
+            const textColor = this.combo.multiplier > 1 ? CONFIG.colors.combo : '#ffffff';
+            this.floatingTextPool.acquire(e.x, e.y - 20, scoreText, textColor);
+          }
 
-          // Combo text
-          if (this.combo.multiplier > 1) {
+          // Combo text - show every 3rd combo to reduce spam
+          if (this.combo.multiplier > 1 && this.combo.count % 3 === 0) {
             this.floatingTextPool.acquire(
               e.x,
               e.y - 40,
               `x${this.combo.multiplier} COMBO!`,
               CONFIG.colors.combo
             );
+          }
+
+          // Audio and bonuses for combos
+          if (this.combo.multiplier > 1) {
             audioManager.playCombo(this.combo.multiplier);
 
             // Ink bonus on high combo
@@ -626,8 +632,7 @@ export class GameEngine {
           // Mark entity for removal (batched cleanup for performance)
           e.markedForDeath = true;
 
-          // Screen shake & sound
-          this.triggerShake(e.type === 'food' ? 1 : CONFIG.shake.eatIntensity);
+          // No screen shake on eating - keeps gameplay smooth
           audioManager.playEat(this.combo.multiplier);
 
           this.checkLevelUp();

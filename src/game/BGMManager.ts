@@ -138,7 +138,7 @@ export class BGMManager {
     if (!trackInfo) return;
 
     if (fade) {
-      this.fadeOut(trackInfo.audio).then(() => {
+      void this.fadeOut(trackInfo.audio).then(() => {
         trackInfo.audio.pause();
         trackInfo.audio.currentTime = 0;
       });

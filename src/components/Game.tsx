@@ -320,7 +320,7 @@ export function Game() {
     bgmManager.preloadAll();
     setBGMInitialized(true);
     // Play menu music on load
-    bgmManager.play('menu', false);
+    void bgmManager.play('menu', false);
 
     // Handle resize
     const handleResize = () => engine.handleResize();
@@ -472,16 +472,16 @@ export function Game() {
 
     if (shopVisible) {
       // Shop music
-      bgmManager.play('shop', true);
+      void bgmManager.play('shop', true);
     } else if (gameState === 'start') {
       // Main menu music
-      bgmManager.play('menu', true);
+      void bgmManager.play('menu', true);
     } else if (gameState === 'gameover') {
       // Game over music
-      bgmManager.play('gameOver', true);
+      void bgmManager.play('gameOver', true);
     } else if (gameState === 'playing') {
       // Gameplay music (will be overridden by boss music)
-      bgmManager.play('gameplay', true);
+      void bgmManager.play('gameplay', true);
     }
   }, [gameState, shopVisible, bgmInitialized]);
 
